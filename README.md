@@ -115,18 +115,14 @@ The library includes two examples:
 Simple button and encoder reading with serial output.
 - File: `examples/Basic/Basic.ino`
 
-### ACC (Assetto Corsa Competizione)
+### ButtonBox_ACC (Assetto Corsa Competizione)
 Complete setup for ACC with:
 - Button mappings for common functions
 - Encoder settings for TC, ABS, etc.
-- Profile management
-- Status LED
 
 Requirements:
 - KeySequence library (https://github.com/roncoa/KeySequence)
-- Files: 
-  - `examples/ACC/ACC.ino`
-  - `examples/ACC/Sequenze.h`
+- Files: Sequenze.h`
 
 ## Documentation
 
