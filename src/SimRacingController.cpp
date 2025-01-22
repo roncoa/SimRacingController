@@ -7,10 +7,13 @@
 
 #include "SimRacingController.h"
 
+// Costruttore con pulsanti encoder
 SimRacingController::SimRacingController(
     const int* rowPins, int numRows,
     const int* colPins, int numCols,
-    const int* encoderPinsA, const int* encoderPinsB, int numEncoders,
+    const int* encoderPinsA, const int* encoderPinsB, 
+    const int* encoderBtnPins,
+    int numEncoders,
     int numProfiles,
     unsigned long buttonDebounce,
     unsigned long encoderDebounce
@@ -25,7 +28,8 @@ SimRacingController::SimRacingController(
     currentProfile(0),
     numProfiles(numProfiles),
     onButtonChange(nullptr),
-    onEncoderChange(nullptr)
+    onEncoderChange(nullptr),
+    onEncoderButtonChange(nullptr)
 {
     initializeArrays();
     
@@ -34,10 +38,23 @@ SimRacingController::SimRacingController(
     for(int i = 0; i < numEncoders; i++) {
         encoders[i].pinA = encoderPinsA[i];
         encoders[i].pinB = encoderPinsB[i];
+        encoders[i].pinBtn = encoderBtnPins ? encoderBtnPins[i] : -1;
         encoders[i].divisor = 4;
         encoders[i].valid = true;
     }
 }
+
+// Costruttore senza pulsanti encoder
+SimRacingController::SimRacingController(
+    const int* rowPins, int numRows,
+    const int* colPins, int numCols,
+    const int* encoderPinsA, const int* encoderPinsB,
+    int numEncoders,
+    int numProfiles,
+    unsigned long buttonDebounce,
+    unsigned long encoderDebounce
+) : SimRacingController(rowPins, numRows, colPins, numCols, encoderPinsA, encoderPinsB, 
+                       nullptr, numEncoders, numProfiles, buttonDebounce, encoderDebounce) {}
 
 SimRacingController::~SimRacingController() {
     cleanupArrays();
@@ -81,6 +98,9 @@ void SimRacingController::begin() {
     for(int i = 0; i < numEncoders; i++) {
         pinMode(encoders[i].pinA, INPUT_PULLUP);
         pinMode(encoders[i].pinB, INPUT_PULLUP);
+        if(encoders[i].pinBtn >= 0) {
+            pinMode(encoders[i].pinBtn, INPUT_PULLUP);
+        }
         encoders[i].lastState = (digitalRead(encoders[i].pinA) << 1) | digitalRead(encoders[i].pinB);
     }
 }
@@ -121,6 +141,25 @@ void SimRacingController::updateEncoder(int index) {
     EncoderConfig& enc = encoders[index];
     unsigned long currentTime = millis();
     
+    // Gestione pulsante encoder
+    if(enc.pinBtn >= 0) {
+        bool currentBtnState = (digitalRead(enc.pinBtn) == LOW);
+        if(currentBtnState != enc.lastBtnState) {
+            enc.lastBtnTime = currentTime;
+        }
+        
+        if((currentTime - enc.lastBtnTime) > buttonDebounceDelay) {
+            if(currentBtnState != enc.btnState) {
+                enc.btnState = currentBtnState;
+                if(onEncoderButtonChange) {
+                    onEncoderButtonChange(currentProfile, index, currentBtnState);
+                }
+            }
+        }
+        enc.lastBtnState = currentBtnState;
+    }
+    
+    // Gestione rotazione encoder
     if(currentTime - enc.lastTime >= encoderDebounceTime) {
         uint8_t currentState = (digitalRead(enc.pinA) << 1) | digitalRead(enc.pinB);
         
@@ -244,10 +283,21 @@ bool SimRacingController::isEncoderValid(int index) const {
     return false;
 }
 
+bool SimRacingController::getEncoderButtonState(int index) const {
+    if(index >= 0 && index < numEncoders && encoders[index].pinBtn >= 0) {
+        return encoders[index].btnState;
+    }
+    return false;
+}
+
 void SimRacingController::setButtonCallback(ButtonCallback callback) {
     onButtonChange = callback;
 }
 
 void SimRacingController::setEncoderCallback(EncoderCallback callback) {
     onEncoderChange = callback;
+}
+
+void SimRacingController::setEncoderButtonCallback(EncoderButtonCallback callback) {
+    onEncoderButtonChange = callback;
 }
