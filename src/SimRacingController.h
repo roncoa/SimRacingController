@@ -1,253 +1,125 @@
 /**************************
- * SimRacingController.cpp
+ * SimRacingController.h
  * v 1.0.0
  * by roncoa@gmail.com
  * 22/01/2025
  **************************/
 
-#include "SimRacingController.h"
+#ifndef SIMRACING_CONTROLLER_H
+#define SIMRACING_CONTROLLER_H
 
-SimRacingController::SimRacingController(
-    const int* rowPins, int numRows,
-    const int* colPins, int numCols,
-    const int* encoderPinsA, const int* encoderPinsB, int numEncoders,
-    int numProfiles,
-    unsigned long buttonDebounce,
-    unsigned long encoderDebounce
-) : 
-    numRows(numRows),
-    numCols(numCols),
-    rowPins(rowPins),
-    colPins(colPins),
-    buttonDebounceDelay(buttonDebounce),
-    numEncoders(numEncoders),
-    encoderDebounceTime(encoderDebounce),
-    currentProfile(0),
-    numProfiles(numProfiles),
-    onButtonChange(nullptr),
-    onEncoderChange(nullptr)
-{
-    initializeArrays();
+#include <Arduino.h>
+
+class SimRacingController {
+private:
+    // Matrice pulsanti
+    const int numRows;
+    const int numCols;
+    const int* rowPins;
+    const int* colPins;
+    bool** lastButtonStates;
+    bool** buttonStates;
+    unsigned long** lastDebounceTime;
+    const unsigned long buttonDebounceDelay;
+
+    // Encoder
+    struct EncoderConfig {
+        int pinA;
+        int pinB;
+        int pinBtn;               // Pin pulsante encoder
+        uint8_t lastState;
+        int8_t encDir;
+        int32_t position;
+        unsigned long lastTime;
+        unsigned long lastBtnTime;  // Debounce pulsante
+        bool lastBtnState;         // Stato precedente pulsante
+        bool btnState;             // Stato attuale pulsante
+        int32_t divisor;
+        int8_t lastDirection;
+        uint32_t errorCount;
+        bool valid;
+        uint16_t speed;
+        unsigned long lastChangeTime;
+
+        EncoderConfig() : 
+            pinA(0), pinB(0), pinBtn(-1),
+            lastState(0), encDir(0),
+            position(0), lastTime(0), lastBtnTime(0),
+            lastBtnState(false), btnState(false),
+            divisor(4), lastDirection(0), errorCount(0),
+            valid(true), speed(0), lastChangeTime(0) {}
+    };
     
-    // Inizializza encoder
-    encoders = new EncoderConfig[numEncoders];
-    for(int i = 0; i < numEncoders; i++) {
-        encoders[i].pinA = encoderPinsA[i];
-        encoders[i].pinB = encoderPinsB[i];
-        encoders[i].divisor = 4;
-        encoders[i].valid = true;
-    }
-}
+    const int numEncoders;
+    EncoderConfig* encoders;
+    const unsigned long encoderDebounceTime;
 
-SimRacingController::~SimRacingController() {
-    cleanupArrays();
-    delete[] encoders;
-}
+    // Profili
+    int currentProfile;
+    const int numProfiles;
 
-void SimRacingController::initializeArrays() {
-    lastButtonStates = new bool*[numRows];
-    buttonStates = new bool*[numRows];
-    lastDebounceTime = new unsigned long*[numRows];
+    // Private methods
+    void initializeArrays();
+    void cleanupArrays();
+    void updateEncoder(int index);
+    void processButtonPress(int row, int col, bool state);
+
+public:
+    // Costruttore con pulsanti encoder
+    SimRacingController(
+        const int* rowPins, int numRows,
+        const int* colPins, int numCols,
+        const int* encoderPinsA, const int* encoderPinsB, 
+        const int* encoderBtnPins,
+        int numEncoders,
+        int numProfiles,
+        unsigned long buttonDebounce = 50,
+        unsigned long encoderDebounce = 5
+    );
+
+    // Costruttore senza pulsanti encoder
+    SimRacingController(
+        const int* rowPins, int numRows,
+        const int* colPins, int numCols,
+        const int* encoderPinsA, const int* encoderPinsB,
+        int numEncoders,
+        int numProfiles,
+        unsigned long buttonDebounce = 50,
+        unsigned long encoderDebounce = 5
+    );
     
-    for(int i = 0; i < numRows; i++) {
-        lastButtonStates[i] = new bool[numCols]();
-        buttonStates[i] = new bool[numCols]();
-        lastDebounceTime[i] = new unsigned long[numCols]();
-    }
-}
+    ~SimRacingController();
 
-void SimRacingController::cleanupArrays() {
-    for(int i = 0; i < numRows; i++) {
-        delete[] lastButtonStates[i];
-        delete[] buttonStates[i];
-        delete[] lastDebounceTime[i];
-    }
-    delete[] lastButtonStates;
-    delete[] buttonStates;
-    delete[] lastDebounceTime;
-}
-
-void SimRacingController::begin() {
-    // Configura pin matrice
-    for(int i = 0; i < numRows; i++) {
-        pinMode(rowPins[i], OUTPUT);
-        digitalWrite(rowPins[i], HIGH);
-    }
-    for(int i = 0; i < numCols; i++) {
-        pinMode(colPins[i], INPUT_PULLUP);
-    }
+    void begin();
+    void update();
     
-    // Configura pin encoder
-    for(int i = 0; i < numEncoders; i++) {
-        pinMode(encoders[i].pinA, INPUT_PULLUP);
-        pinMode(encoders[i].pinB, INPUT_PULLUP);
-        encoders[i].lastState = (digitalRead(encoders[i].pinA) << 1) | digitalRead(encoders[i].pinB);
-    }
-}
-
-void SimRacingController::update() {
-    // Aggiorna matrice pulsanti
-    for(int row = 0; row < numRows; row++) {
-        digitalWrite(rowPins[row], LOW);
-        delayMicroseconds(10);
-        
-        for(int col = 0; col < numCols; col++) {
-            bool currentReading = (digitalRead(colPins[col]) == LOW);
-            
-            if(currentReading != lastButtonStates[row][col]) {
-                lastDebounceTime[row][col] = millis();
-            }
-            
-            if((millis() - lastDebounceTime[row][col]) > buttonDebounceDelay) {
-                if(currentReading != buttonStates[row][col]) {
-                    buttonStates[row][col] = currentReading;
-                    processButtonPress(row, col, currentReading);
-                }
-            }
-            
-            lastButtonStates[row][col] = currentReading;
-        }
-        
-        digitalWrite(rowPins[row], HIGH);
-    }
+    // Configurazione
+    void setEncoderDivisor(int encoderIndex, int32_t divisor);
+    void setEncoderPosition(int encoderIndex, int32_t position);
+    void setProfile(int profile);
+    int getProfile() const;
     
-    // Aggiorna encoder
-    for(int i = 0; i < numEncoders; i++) {
-        updateEncoder(i);
-    }
-}
-
-void SimRacingController::updateEncoder(int index) {
-    EncoderConfig& enc = encoders[index];
-    unsigned long currentTime = millis();
+    // Getters per stato
+    int32_t getEncoderPosition(int index) const;
+    int8_t getEncoderDirection(int index) const;
+    uint16_t getEncoderSpeed(int index) const;
+    bool getButtonState(int row, int col) const;
+    bool isEncoderValid(int index) const;
+    bool getEncoderButtonState(int index) const;
     
-    if(currentTime - enc.lastTime >= encoderDebounceTime) {
-        uint8_t currentState = (digitalRead(enc.pinA) << 1) | digitalRead(enc.pinB);
-        
-        if(currentState != enc.lastState) {
-            enc.lastTime = currentTime;
-            
-            if(enc.lastChangeTime > 0) {
-                unsigned long timeDiff = currentTime - enc.lastChangeTime;
-                if(timeDiff > 0) {
-                    enc.speed = 1000 / timeDiff;
-                }
-            }
-            enc.lastChangeTime = currentTime;
-            
-            if(enc.lastState == 0) {
-                if(currentState == 1) enc.encDir = 1;
-                else if(currentState == 2) enc.encDir = -1;
-                else enc.errorCount++;
-            }
-            else if(enc.lastState == 1) {
-                if(currentState == 3) enc.encDir = 1;
-                else if(currentState == 0) enc.encDir = -1;
-                else enc.errorCount++;
-            }
-            else if(enc.lastState == 2) {
-                if(currentState == 0) enc.encDir = 1;
-                else if(currentState == 3) enc.encDir = -1;
-                else enc.errorCount++;
-            }
-            else if(enc.lastState == 3) {
-                if(currentState == 2) enc.encDir = 1;
-                else if(currentState == 1) enc.encDir = -1;
-                else enc.errorCount++;
-            }
-            
-            if(enc.encDir != 0) {
-                if((enc.lastState == 3 && currentState == 2 && enc.encDir == 1) ||
-                   (enc.lastState == 3 && currentState == 1 && enc.encDir == -1)) {
-                    enc.position += ((enc.encDir * 4) / enc.divisor);
-                    enc.lastDirection = enc.encDir;
-                    enc.valid = (enc.errorCount == 0);
-                    
-                    if(onEncoderChange) {
-                        onEncoderChange(currentProfile, index, enc.encDir);
-                    }
-                    
-                    enc.encDir = 0;
-                }
-            }
-            
-            enc.lastState = currentState;
-        }
-        
-        // Reset velocità se non ci sono cambiamenti
-        if(currentTime - enc.lastChangeTime > 1000) {
-            enc.speed = 0;
-        }
-    }
-}
+    // Callback setters
+    typedef void (*ButtonCallback)(int profile, int row, int col, bool state);
+    typedef void (*EncoderCallback)(int profile, int encoder, int direction);
+    typedef void (*EncoderButtonCallback)(int profile, int encoder, bool pressed);
+    
+    void setButtonCallback(ButtonCallback callback);
+    void setEncoderCallback(EncoderCallback callback);
+    void setEncoderButtonCallback(EncoderButtonCallback callback);
 
-void SimRacingController::processButtonPress(int row, int col, bool state) {
-    if(onButtonChange) {
-        onButtonChange(currentProfile, row, col, state);
-    }
-}
+private:
+    ButtonCallback onButtonChange;
+    EncoderCallback onEncoderChange;
+    EncoderButtonCallback onEncoderButtonChange;
+};
 
-void SimRacingController::setEncoderDivisor(int encoderIndex, int32_t divisor) {
-    if(encoderIndex >= 0 && encoderIndex < numEncoders && divisor > 0 && divisor <= 4) {
-        encoders[encoderIndex].divisor = divisor;
-    }
-}
-
-void SimRacingController::setEncoderPosition(int encoderIndex, int32_t position) {
-    if(encoderIndex >= 0 && encoderIndex < numEncoders) {
-        encoders[encoderIndex].position = position;
-    }
-}
-
-void SimRacingController::setProfile(int profile) {
-    if(profile >= 0 && profile < numProfiles) {
-        currentProfile = profile;
-    }
-}
-
-int SimRacingController::getProfile() const {
-    return currentProfile;
-}
-
-int32_t SimRacingController::getEncoderPosition(int index) const {
-    if(index >= 0 && index < numEncoders) {
-        return encoders[index].position;
-    }
-    return 0;
-}
-
-int8_t SimRacingController::getEncoderDirection(int index) const {
-    if(index >= 0 && index < numEncoders) {
-        return encoders[index].lastDirection;
-    }
-    return 0;
-}
-
-uint16_t SimRacingController::getEncoderSpeed(int index) const {
-    if(index >= 0 && index < numEncoders) {
-        return encoders[index].speed;
-    }
-    return 0;
-}
-
-bool SimRacingController::getButtonState(int row, int col) const {
-    if(row >= 0 && row < numRows && col >= 0 && col < numCols) {
-        return buttonStates[row][col];
-    }
-    return false;
-}
-
-bool SimRacingController::isEncoderValid(int index) const {
-    if(index >= 0 && index < numEncoders) {
-        return encoders[index].valid;
-    }
-    return false;
-}
-
-void SimRacingController::setButtonCallback(ButtonCallback callback) {
-    onButtonChange = callback;
-}
-
-void SimRacingController::setEncoderCallback(EncoderCallback callback) {
-    onEncoderChange = callback;
-}
+#endif
