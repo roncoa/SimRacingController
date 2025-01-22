@@ -44,7 +44,7 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button 
 
 ### Simple Example
 ```cpp
-#include "SimRacingController.h"
+#include <SimRacingController.h>
 
 // Matrix configuration
 const int ROW_PINS[] = {2, 3, 4};
