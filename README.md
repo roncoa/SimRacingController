@@ -60,7 +60,9 @@ SimRacingController controller(
     COL_PINS, 5,            // Columns
     ENC_PINS_A, ENC_PINS_B, // Encoders
     4,                      // Number of encoders
-    1                       // Number of profiles
+    1,                      // Number of profiles
+    50,                     // Buttons debounce
+    5                       // Encoders debounce
 );
 
 void setup() {
