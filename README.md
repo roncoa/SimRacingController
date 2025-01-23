@@ -84,7 +84,9 @@ SimRacingController controller(
     ENC_PINS_A, ENC_PINS_B,
     ENC_BTN_PINS,           // Encoder buttons
     4,                      // Number of encoders
-    1                       // Number of profiles
+    1,                      // Number of profiles
+    50,                     // Buttons debounce
+    5                       // Encoders debounce
 );
 ```
 
