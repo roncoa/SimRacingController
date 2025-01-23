@@ -52,7 +52,6 @@ void onEncoderButtonEvent(int profile, int encoder, bool pressed) {
 }
 
 void setup() {
-  keys.begin();
   Serial.begin(115200);
   while (!Serial)
   {
