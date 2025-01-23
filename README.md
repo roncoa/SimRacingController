@@ -122,7 +122,7 @@ Complete setup for ACC with:
 
 Requirements:
 - KeySequence library (https://github.com/roncoa/KeySequence)
-- Files: Sequenze.h`
+- ACC shorcut: `Sequenze.h`
 
 ## Documentation
 
