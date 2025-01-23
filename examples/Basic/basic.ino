@@ -30,7 +30,9 @@ SimRacingController controller(
   ENC_PINS_A, ENC_PINS_B,
   //ENC_BTN_PINS,
   NUM_ENCODERS,
-  1  // Single profile
+  1,                  // NUM_PROFILI (Single profile)
+  50,                 // DEBOUNCE_BOTTONI
+  5                   // DEBOUNCE_ENCODER
 );
 
 void onButtonEvent(int profile, int row, int col, bool pressed) {
