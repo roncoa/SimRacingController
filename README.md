@@ -31,6 +31,7 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button 
 - Arduino Leonardo
 - Arduino Pro Micro
 - Any ATmega32U4 based board
+- ESP32 S3 boards
 
 ### Required Components
 - Push buttons for matrix
