@@ -1,15 +1,35 @@
 # SimRacingController Library
 
-Advanced Arduino library for creating SimRacing button boxes with matrix button and encoder support. Designed specifically for racing simulator controllers, this library offers a flexible and efficient solution for building custom control panels.
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/roncoa/SimRacingController)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, and encoder support. Designed specifically for racing simulator controllers, this library offers a flexible and efficient solution for building custom control panels.
+
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Hardware Requirements](#hardware-requirements)
+- [Usage](#usage)
+  - [Basic Setup](#basic-setup)
+  - [Event Handling](#event-handling)
+  - [State Reading](#state-reading)
+- [Examples](#examples)
+- [Documentation](#documentation)
+- [Troubleshooting](#troubleshooting)
+- [Version History](#version-history)
+- [Support](#support)
 
 ## Features
 - Button matrix management with debounce
+- Direct GPIO button support
 - Rotary encoder support with configurable sensitivity
 - Optional encoder push buttons
 - Multiple profiles support
 - Event-driven architecture with callbacks
 - Efficient memory usage
 - Hardware-agnostic design
+- Comprehensive error checking and validation
+- Real-time encoder speed detection
 
 ## Installation
 
@@ -36,37 +56,49 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button 
 ### Required Components
 - Push buttons for matrix
 - Diodes (1N4148 or similar) for button matrix
+- Direct push buttons (optional)
 - Rotary encoders (optional)
 - Pull-up resistors (if not using internal pull-ups)
-- LED and resistor for status (optional)
-- Push button for profile switching (optional)
 
-## Basic Usage
+## Usage
 
-### Simple Example
+### Basic Setup
 ```cpp
 #include <SimRacingController.h>
 
 // Matrix configuration
-const int ROW_PINS[] = {2, 3, 4};
-const int COL_PINS[] = {5, 6, 7, 8, 9};
+const int MATRIX_ROWS = 3;
+const int MATRIX_COLS = 5;
+const int rowPins[MATRIX_ROWS] = {2, 3, 4};
+const int colPins[MATRIX_COLS] = {5, 6, 7, 8, 9};
+
+// Direct GPIO buttons
+const int NUM_GPIO = 3;
+const int gpioPins[NUM_GPIO] = {16, 17, 18};
 
 // Encoders configuration
-const int ENC_PINS_A[] = {20, 18, 14, 10};
-const int ENC_PINS_B[] = {21, 19, 15, 16};
+const int NUM_ENCODERS = 4;
+const int encoderPinsA[NUM_ENCODERS] = {20, 18, 14, 10};
+const int encoderPinsB[NUM_ENCODERS] = {21, 19, 15, 16};
+const int encoderBtnPins[NUM_ENCODERS] = {22, 23, 24, 25}; // Optional
 
-// Without encoder buttons
-SimRacingController controller(
-    ROW_PINS, 3,             // Rows
-    COL_PINS, 5,            // Columns
-    ENC_PINS_A, ENC_PINS_B, // Encoders
-    4,                      // Number of encoders
-    1,                      // Number of profiles
-    50,                     // Buttons debounce
-    5                       // Encoders debounce
-);
+SimRacingController controller;
 
 void setup() {
+    // Configure components
+    controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
+    controller.setGpio(gpioPins, NUM_GPIO);
+    
+    // Choose one:
+    // 1. Encoders with buttons:
+    controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
+    // 2. Encoders without buttons:
+    // controller.setEncoders(encoderPinsA, encoderPinsB, NUM_ENCODERS);
+    
+    // Additional configuration
+    controller.setProfiles(3);  // Number of profiles
+    controller.setDebounceTime(50, 5);  // Matrix/GPIO=50ms, Encoder=5ms
+    
     controller.begin();
 }
 
@@ -75,66 +107,76 @@ void loop() {
 }
 ```
 
-### With Encoder Buttons
-```cpp
-const int ENC_BTN_PINS[] = {22, 23, 24, 25};
-
-SimRacingController controller(
-    ROW_PINS, 3,
-    COL_PINS, 5,
-    ENC_PINS_A, ENC_PINS_B,
-    ENC_BTN_PINS,           // Encoder buttons
-    4,                      // Number of encoders
-    1,                      // Number of profiles
-    50,                     // Buttons debounce
-    5                       // Encoders debounce
-);
-```
-
 ### Event Handling
 ```cpp
-void onButtonEvent(int profile, int row, int col, bool pressed) {
-    // Handle button press/release
+// Matrix button events
+void onMatrixChange(int profile, int row, int col, bool pressed) {
+    // Handle matrix button press/release
 }
 
-void onEncoderEvent(int profile, int encoder, int direction) {
-    // Handle encoder rotation
+// Direct GPIO button events
+void onGpioChange(int profile, int gpio, bool pressed) {
+    // Handle GPIO button press/release
 }
 
-void onEncoderButtonEvent(int profile, int encoder, bool pressed) {
+// Encoder rotation events
+void onEncoderChange(int profile, int encoder, int direction) {
+    // Get additional encoder info
+    int32_t position = controller.getEncoderPosition(encoder);
+    uint16_t speed = controller.getEncoderSpeed(encoder);
+    bool isValid = controller.isEncoderValid(encoder);
+}
+
+// Encoder button events
+void onEncoderButtonChange(int profile, int encoder, bool pressed) {
     // Handle encoder button press/release
 }
 
 void setup() {
-    controller.setButtonCallback(onButtonEvent);
-    controller.setEncoderCallback(onEncoderEvent);
-    controller.setEncoderButtonCallback(onEncoderButtonEvent);
+    // ... configuration code ...
+    controller.setMatrixCallback(onMatrixChange);
+    controller.setGpioCallback(onGpioChange);
+    controller.setEncoderCallback(onEncoderChange);
+    controller.setEncoderButtonCallback(onEncoderButtonChange);
     controller.begin();
 }
 ```
 
+### State Reading
+```cpp
+// Matrix buttons
+bool matrixState = controller.getMatrixState(row, col);
+
+// GPIO buttons
+bool gpioState = controller.getGpioState(gpio);
+
+// Encoder information
+int32_t position = controller.getEncoderPosition(encoder);
+int8_t direction = controller.getEncoderDirection(encoder);
+uint16_t speed = controller.getEncoderSpeed(encoder);
+bool isValid = controller.isEncoderValid(encoder);
+bool btnState = controller.getEncoderButtonState(encoder);
+```
+
 ## Examples
-The library includes two examples:
 
-### Basic
-Simple button and encoder reading with serial output.
-- File: `examples/Basic/Basic.ino`
+### Basic Example
+Basic button, GPIO, and encoder reading with serial output.
+File: `examples/Basic/Basic.ino`
 
-### ButtonBox_ACC (Assetto Corsa Competizione)
-Complete setup for ACC with:
-- Button mappings for common functions
-- Encoder settings for TC, ABS, etc.
+### Advanced Example
+Complete setup showing all features including profile management and callbacks.
+File: `examples/Advanced/Advanced.ino`
+
+### ACC Button Box
+Complete setup for Assetto Corsa Competizione.
+File: `examples/ButtonBox_ACC/ButtonBox_ACC.ino`
 
 Requirements:
-- KeySequence library (https://github.com/roncoa/KeySequence)
-- ACC shorcut: `Sequenze.h`
+- KeySequence library
+- ACC shortcuts configuration
 
 ## Documentation
-
-### Detailed Guides
-- [API Reference](docs/api.md)
-- [Hardware Wiring Guide](docs/wiring.md)
-- [Examples Documentation](docs/examples.md)
 
 ### Key Concepts
 
@@ -142,21 +184,28 @@ Requirements:
 - Efficient scanning algorithm
 - Built-in debounce
 - No ghosting with proper diode configuration
+- Independent state tracking
+
+#### Direct GPIO Buttons
+- Simple direct button connection
+- Same debounce as matrix
+- Ideal for single buttons
 
 #### Encoders
 - Configurable sensitivity (1-4x)
-- Speed detection
+- Real-time speed detection
 - Error checking
 - Optional push button support
 
 #### Profiles
 - Multiple profile support
 - Easy profile switching
-- LED status indication
+- Separate callbacks per profile
 
 ## Troubleshooting
 
 ### Common Issues
+
 1. Button Ghosting
    - Verify diode installation
    - Check matrix wiring
@@ -164,17 +213,25 @@ Requirements:
 2. Encoder Issues
    - Adjust debounce time
    - Verify A/B pin connections
-   - Check encoder divisor setting
+   - Check encoder divisor
 
-3. Matrix Not Responding
+3. Matrix/GPIO Not Responding
    - Verify pin modes
    - Check pull-up resistors
-   - Confirm row/column connections
+   - Confirm connections
 
-## Contributing
-1. Fork repository
-2. Create feature branch
-3. Submit pull request
+## Version History
+
+- 2.1.0 (27/01/2025)
+  - Added direct GPIO button support
+  - Improved encoder handling
+  - Better memory management
+  - Enhanced documentation
+  - English translation
+- 1.0.1
+  - Small fixes
+- 1.0.0
+  - Initial release
 
 ## Support
 - GitHub Issues: Technical issues, bugs
@@ -183,16 +240,6 @@ Requirements:
 
 ## License
 MIT License - See LICENSE file
-
-## Version History
-
-- 1.0.1
-  - Small fixes
-- 1.0.0
-  - Initial release
-  - Basic matrix support
-  - Encoder functionality
-  - Profile management
 
 ## Author
 roncoa@gmail.com
