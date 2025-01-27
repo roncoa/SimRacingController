@@ -1,4 +1,4 @@
-# Hardware Wiring Guide v2.1.0
+# Hardware Wiring Guide v2.0.0
 
 ## Button Matrix
 ### Basic Configuration
