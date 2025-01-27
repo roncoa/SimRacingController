@@ -1,7 +1,7 @@
 /**************************
  * SimRacingController
  * Basic Example
- * v 2.1.0
+ * v 2.0.0
  * by roncoa@gmail.com
  * 27/01/2025
  **************************/
