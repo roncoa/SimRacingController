@@ -1,5 +1,6 @@
 # SimRacingController Library
 
+[![Version](https://img.shields.io/github/v/release/roncoa/SimRacingController)](https://github.com/roncoa/SimRacingController)
 [![GitHub release](https://img.shields.io/github/release/roncoa/SimRacingController.svg)](https://github.com/roncoa/SimRacingController/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
