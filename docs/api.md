@@ -1,4 +1,4 @@
-# SimRacingController API Reference v2.1.0
+# SimRacingController API Reference v2.0.0
 
 ## Initialization
 
