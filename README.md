@@ -1,6 +1,7 @@
 # SimRacingController Library
 
 [![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/roncoa/SimRacingController)
+[![GitHub release](https://img.shields.io/github/release/roncoa/SimRacingController.svg)](https://github.com/roncoa/SimRacingController/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, and encoder support. Designed specifically for racing simulator controllers, this library offers a flexible and efficient solution for building custom control panels.
