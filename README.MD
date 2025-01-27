@@ -174,12 +174,17 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## Version History
 
-### 2.1.0 (27/01/2025)
+### 2.1.0
 - Added I2C expander support (MCP23017, PCF8574, PCF8574A)
 - Improved encoder handling
 - Added ESP32 custom I2C pins support
 - Enhanced memory management
-- English documentation
+
+### 2.0.0
+- Added direct GPIO button support
+- Improved encoder handling
+- Better memory management
+- Enhanced documentation
 
 ### 1.0.1
 - Small fixes
