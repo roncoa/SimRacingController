@@ -1,85 +1,97 @@
 /**************************
  * SimRacingController
  * Advanced Example
- * v 2.0.0
+ * v 2.1.0
  * by roncoa@gmail.com
  * 27/01/2025
  **************************/
 
 #include <SimRacingController.h>
 
-// Matrix configuration - 4x4 button matrix
-const int MATRIX_ROWS = 4;
-const int MATRIX_COLS = 4;
-const int rowPins[MATRIX_ROWS] = {2, 3, 4, 5};
-const int colPins[MATRIX_COLS] = {6, 7, 8, 9};
+// Pin configurations
+#ifdef ARDUINO_ARCH_ESP32
+    // Matrix configuration
+    const int MATRIX_ROWS = 4;
+    const int MATRIX_COLS = 4;
+    const int rowPins[MATRIX_ROWS] = {4, 5, 6, 7};
+    const int colPins[MATRIX_COLS] = {15, 16, 17, 18};
 
-// GPIO configuration - 4 direct buttons
-const int NUM_GPIO = 4;
-const int gpioPins[NUM_GPIO] = {10, 11, 12, 13};
+    // Encoder configuration
+    const int NUM_ENCODERS = 3;
+    const int encoderPinsA[NUM_ENCODERS] = {25, 27, 32};
+    const int encoderPinsB[NUM_ENCODERS] = {26, 28, 33};
+    const int encoderBtnPins[NUM_ENCODERS] = {23, 19, 34};
 
-// Encoder configuration - 2 encoders with buttons
-const int NUM_ENCODERS = 2;
-const int encoderPinsA[NUM_ENCODERS] = {14, 16};
-const int encoderPinsB[NUM_ENCODERS] = {15, 17};
-const int encoderBtnPins[NUM_ENCODERS] = {18, 19};
+    // I2C configuration
+    const int I2C_SDA = 21;
+    const int I2C_SCL = 22;
+#else
+    // Matrix configuration
+    const int MATRIX_ROWS = 3;
+    const int MATRIX_COLS = 3;
+    const int rowPins[MATRIX_ROWS] = {2, 3, 4};
+    const int colPins[MATRIX_COLS] = {5, 6, 7};
 
-// Number of profiles
+    // Encoder configuration
+    const int NUM_ENCODERS = 2;
+    const int encoderPinsA[NUM_ENCODERS] = {10, 12};
+    const int encoderPinsB[NUM_ENCODERS] = {11, 13};
+    const int encoderBtnPins[NUM_ENCODERS] = {14, 15};
+#endif
+
+// I2C Expander configuration
+const int NUM_EXPANDERS = 2;  // Using 2 expanders
+
+// Number of available profiles
 const int NUM_PROFILES = 3;
+
+// Profile names for display
+const char* profileNames[] = {
+    "Racing",
+    "Setup",
+    "Menu"
+};
 
 // Create controller instance
 SimRacingController controller;
 
-// Function prototypes
-void handleProfile0(int row, int col, bool state);
-void handleProfile1(int row, int col, bool state);
-void handleProfile2(int row, int col, bool state);
-
-// Profile names for display
-const char* profileNames[] = {
-    "Race Mode",
-    "Pit Mode",
-    "Setup Mode"
-};
-
-// Callback for matrix buttons
+// Matrix button callback
 void onMatrixChange(int profile, int row, int col, bool state) {
     Serial.print("Profile: ");
     Serial.print(profileNames[profile]);
-    Serial.print(" - Matrix Button [");
+    Serial.print(" - Matrix [");
     Serial.print(row);
     Serial.print("][");
     Serial.print(col);
     Serial.print("] ");
     Serial.println(state ? "PRESSED" : "RELEASED");
-    
-    // Handle button based on current profile
-    switch(profile) {
-        case 0: handleProfile0(row, col, state); break;
-        case 1: handleProfile1(row, col, state); break;
-        case 2: handleProfile2(row, col, state); break;
+
+    // Example: check for button combinations
+    if(state && controller.getMatrixState(0, 0)) {
+        Serial.println("Button combination detected!");
     }
 }
 
-// Callback for GPIO buttons
-void onGpioChange(int profile, int gpio, bool state) {
+// Expander callback
+void onExpanderChange(int profile, int expander, uint8_t state) {
     Serial.print("Profile: ");
     Serial.print(profileNames[profile]);
-    Serial.print(" - GPIO ");
-    Serial.print(gpio);
-    Serial.print(" ");
-    Serial.println(state ? "PRESSED" : "RELEASED");
-    
-    // Example: GPIO 0 cycles through profiles when pressed
-    if(gpio == 0 && state) {
-        int nextProfile = (controller.getProfile() + 1) % NUM_PROFILES;
-        controller.setProfile(nextProfile);
-        Serial.print("Switched to profile: ");
-        Serial.println(profileNames[nextProfile]);
+    Serial.print(" - Expander ");
+    Serial.print(expander);
+    Serial.print(" State: 0x");
+    Serial.println(state, HEX);
+
+    // Example: check specific pins
+    for(int pin = 0; pin < 8; pin++) {
+        if(!(state & (1 << pin))) {  // Active LOW
+            Serial.print("Pin ");
+            Serial.print(pin);
+            Serial.println(" is active");
+        }
     }
 }
 
-// Callback for encoder rotation
+// Encoder rotation callback
 void onEncoderChange(int profile, int encoder, int direction) {
     int32_t position = controller.getEncoderPosition(encoder);
     uint16_t speed = controller.getEncoderSpeed(encoder);
@@ -94,25 +106,26 @@ void onEncoderChange(int profile, int encoder, int direction) {
     Serial.print(position);
     Serial.print(" Speed: ");
     Serial.println(speed);
-    
-    // Example: Reset position if speed is high
+
+    // Example: automatic position reset at speed threshold
     if(speed > 50) {
         controller.setEncoderPosition(encoder, 0);
         Serial.println("Speed limit reached - Position reset");
     }
 }
 
-// Callback for encoder buttons
+// Encoder button callback
 void onEncoderButtonChange(int profile, int encoder, bool state) {
+    static unsigned long pressTime = 0;
+    
     Serial.print("Profile: ");
     Serial.print(profileNames[profile]);
     Serial.print(" - Encoder ");
     Serial.print(encoder);
     Serial.print(" Button ");
     Serial.println(state ? "PRESSED" : "RELEASED");
-    
-    // Example: Long press detection
-    static unsigned long pressTime = 0;
+
+    // Example: long press detection
     if(state) {
         pressTime = millis();
     } else {
@@ -123,51 +136,36 @@ void onEncoderButtonChange(int profile, int encoder, bool state) {
     }
 }
 
-// Profile-specific button handlers
-void handleProfile0(int row, int col, bool state) {
-    if(state) {
-        Serial.println("Race Mode Action");
-        // Add race-specific actions
-    }
-}
-
-void handleProfile1(int row, int col, bool state) {
-    if(state) {
-        Serial.println("Pit Mode Action");
-        // Add pit-specific actions
-    }
-}
-
-void handleProfile2(int row, int col, bool state) {
-    if(state) {
-        Serial.println("Setup Mode Action");
-        // Add setup-specific actions
-    }
-}
-
 void setup() {
     // Initialize serial communication
     Serial.begin(115200);
     Serial.println("SimRacingController - Advanced Example");
     
-    // Configure components
+    // Configure matrix
     controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
-    controller.setGpio(gpioPins, NUM_GPIO);
+    
+    // Configure encoders
     controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
+    
+    // Configure expanders if on ESP32
+    #ifdef ARDUINO_ARCH_ESP32
+        controller.setExpander(I2C_SDA, I2C_SCL, EXPANDER_PCF8574, NUM_EXPANDERS);
+    #endif
     
     // Configure profiles and timing
     controller.setProfiles(NUM_PROFILES);
-    controller.setDebounceTime(50, 5);  // matrix/gpio=50ms, encoder=5ms
+    controller.setDebounceTime(50, 5);  // matrix=50ms, encoder=5ms
     
     // Configure encoder sensitivity
-    controller.setEncoderDivisor(0, 4);  // First encoder: 1 step = 4 detents
-    controller.setEncoderDivisor(1, 2);  // Second encoder: 1 step = 2 detents
+    for(int i = 0; i < NUM_ENCODERS; i++) {
+        controller.setEncoderDivisor(i, 4);  // 1 step = 4 detents
+    }
     
     // Set callbacks
     controller.setMatrixCallback(onMatrixChange);
-    controller.setGpioCallback(onGpioChange);
     controller.setEncoderCallback(onEncoderChange);
     controller.setEncoderButtonCallback(onEncoderButtonChange);
+    controller.setExpanderCallback(onExpanderChange);
     
     // Initialize controller
     controller.begin();
@@ -181,5 +179,26 @@ void loop() {
     // Update controller state
     controller.update();
     
-    // Add your main loop code here
+    // Example: automatic profile cycling
+    static unsigned long lastProfileChange = 0;
+    if(millis() - lastProfileChange > 5000) {  // Every 5 seconds
+        lastProfileChange = millis();
+        int nextProfile = (controller.getProfile() + 1) % NUM_PROFILES;
+        controller.setProfile(nextProfile);
+        Serial.print("Profile changed to: ");
+        Serial.println(profileNames[nextProfile]);
+    }
+
+    // Example: print encoder states periodically
+    static unsigned long lastStatusPrint = 0;
+    if(millis() - lastStatusPrint > 1000) {  // Every second
+        lastStatusPrint = millis();
+        for(int i = 0; i < NUM_ENCODERS; i++) {
+            if(!controller.isEncoderValid(i)) {
+                Serial.print("Encoder ");
+                Serial.print(i);
+                Serial.println(" has errors!");
+            }
+        }
+    }
 }

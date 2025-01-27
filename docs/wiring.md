@@ -1,4 +1,4 @@
-# Hardware Wiring Guide v2.0.0
+# Hardware Wiring Guide v2.1.0
 
 ## Button Matrix
 ### Basic Configuration
@@ -8,10 +8,13 @@
 [ROW1] --- [BTN] --- [COL2]
 [ROW2] --- [BTN] --- [COL1]
 [ROW2] --- [BTN] --- [COL2]
-ROW pins: OUTPUT, normally HIGH
-COL pins: INPUT_PULLUP
-Each button should have a diode in series to prevent ghosting
+
+Notes:
+- ROW pins: OUTPUT, normally HIGH
+- COL pins: INPUT_PULLUP
+- Each button needs a diode in series to prevent ghosting
 ```
+
 ### Connection Diagram
 ```
 Arduino        Button Matrix
@@ -48,8 +51,9 @@ B --- Pin B (DT)
 C --- Common/GND
 SW -- Button (optional)
 
-All encoder pins should be set to INPUT_PULLUP
+All pins should be set to INPUT_PULLUP
 ```
+
 ### Connection Diagram
 ```
 Arduino         Encoder
@@ -59,6 +63,7 @@ Pin B   <----- DT  (B)
 Button  <----- SW  (opt)
 GND    <----- Common (C)
 ```
+
 ### Multiple Encoders
 ```
 Arduino         Encoder1        Encoder2
@@ -70,6 +75,44 @@ Arduino         Encoder1        Encoder2
 19      <------------------- DT  (B)
 23      <------------------- SW  (opt)
 GND     <----- GND    <----- GND
+```
+
+## I2C Expanders
+
+### MCP23017 Configuration
+```
+Arduino         MCP23017
+-------         --------
+SDA     <----> SDA
+SCL     <----> SCL
+GND     <----> GND/VSS
+VCC     <----> VDD
+         ----> A0 (GND for first chip, VCC for second)
+         ----> A1 (GND)
+         ----> A2 (GND)
+         ----> RESET (VCC)
+```
+
+### PCF8574/PCF8574A Configuration
+```
+Arduino         PCF8574/A
+-------         ---------
+SDA     <----> SDA
+SCL     <----> SCL
+GND     <----> GND
+VCC     <----> VCC
+         ----> A0 (GND for first chip, VCC for second)
+         ----> A1 (GND)
+         ----> A2 (GND)
+```
+
+### I2C Addresses
+```
+Device          Base Address   Address Range
+-------         ------------   -------------
+MCP23017        0x20          0x20-0x27
+PCF8574         0x20          0x20-0x27
+PCF8574A        0x38          0x38-0x3F
 ```
 
 ## Hardware Requirements
@@ -88,65 +131,63 @@ GND     <----- GND    <----- GND
 - Pull-up resistors (10kΩ) if not using internal pull-ups
 - Capacitors (100nF) for additional debouncing (optional)
 
-## Recommended Parts
-
-### Buttons and Switches
-- Matrix buttons: Cherry MX or similar
-- Direct GPIO buttons: Quality tactile switches
-- Diodes: 1N4148 or similar switching diodes
-- Pull-up resistors: 10kΩ (if not using internal pull-ups)
-
-### Encoders
-- Type: EC11 series or similar quality encoders
-- Resolution: 20-30 pulses per rotation recommended
-- With or without push button function
-
-### Additional Components
-- Bypass capacitors: 100nF ceramic
-- PCB mount connectors recommended
-- Quality hook-up wire (22-28 AWG)
+### I2C Expanders
+- MCP23017, PCF8574, or PCF8574A
+- Pull-up resistors (4.7kΩ) for I2C lines
+- Bypass capacitors (100nF) near each IC
 
 ## Installation Tips
 
 ### General
 - Keep wires short and organized
 - Use connectors for removable parts
+- Add bypass capacitors near ICs
 - Consider strain relief for cables
 
 ### Matrix
-- Install diodes in correct orientation
+- Install diodes in correct orientation (cathode to column)
 - Check for proper row/column isolation
 - Test each intersection individually
+- Consider pull-downs for outputs (optional)
 
 ### Encoders
 - Mount securely to prevent mechanical stress
 - Consider mechanical alignment
 - Test rotation before final assembly
+- Add debounce capacitors if needed
 
-### GPIO Buttons
-- Keep wires short to minimize noise
-- Consider adding external pull-up resistors for reliability
-- Test each button individually
-
-## Troubleshooting
-
-### Matrix Issues
-- Check diode orientation
-- Verify pull-up resistors
-- Test for shorts between rows/columns
-
-### Encoder Issues
-- Verify A/B pin connections
-- Check for proper grounding
-- Consider adding debounce capacitors
-
-### GPIO Button Issues
-- Check pull-up configuration
-- Verify ground connections
-- Test for stuck buttons
+### I2C Expanders
+- Keep I2C lines short
+- Use appropriate pull-up resistors
+- Check address conflicts
+- Add bypass capacitors
+- Consider address jumpers for multiple devices
 
 ## Power Considerations
 - Use external power for many components
 - Add bypass capacitors near ICs
 - Calculate total current requirements
 - Consider voltage drops in long runs
+- Use appropriate power distribution
+
+## Common Issues and Solutions
+
+### Matrix Ghosting
+- Verify diode orientation
+- Check for missing diodes
+- Test for shorts between rows/columns
+- Verify pull-up resistors
+
+### Encoder Issues
+- Check pin connections
+- Verify common ground
+- Add debounce capacitors
+- Check encoder quality
+- Verify mechanical mounting
+
+### I2C Issues
+- Verify addresses
+- Check pull-up resistors
+- Measure I2C voltage levels
+- Test each device individually
+- Check for address conflicts

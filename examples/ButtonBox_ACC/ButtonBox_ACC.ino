@@ -1,6 +1,6 @@
 /**************************
  * SimRacing ButtonBox ACC
- * v 2.0.0
+ * v 2.1.0
  * by roncoa@gmail.com
  * 27/01/2025
  **************************/
@@ -9,38 +9,45 @@
 #include <SimRacingController.h>
 #include "Sequenze.h"
 
+// Debug configuration
 #define DEBUG true
 
-// Matrix Configuration
+// Hardware configuration
 #ifdef ARDUINO_ARCH_ESP32
-    #define RIGHE 4
-    #define COLONNE 5
-    const int PIN_RIGHE[RIGHE] = {4, 5, 6, 7};
-    const int PIN_COLONNE[COLONNE] = {15, 16, 17, 18, 8};
+    // Matrix Configuration
+    #define MATRIX_ROWS 4
+    #define MATRIX_COLS 5
+    const int rowPins[MATRIX_ROWS] = {4, 5, 6, 7};
+    const int colPins[MATRIX_COLS] = {15, 16, 17, 18, 8};
+
+    // Encoder Configuration
     #define NUM_ENCODERS 5
-    const int ENCODER_PINS_A[NUM_ENCODERS] = {37, 9, 11, 13, 3};
-    const int ENCODER_PINS_B[NUM_ENCODERS] = {36, 10, 12, 14, 46};
-    //const int ENCODER_BTN_PINS[NUM_ENCODERS] = {38, 35, 45, 47, 21};
+    const int encoderPinsA[NUM_ENCODERS] = {37, 9, 11, 13, 3};
+    const int encoderPinsB[NUM_ENCODERS] = {36, 10, 12, 14, 46};
+    //const int encoderBtnPins[NUM_ENCODERS] = {38, 35, 45, 47, 21};  // Optional
 #else
-    #define RIGHE 3
-    #define COLONNE 5
-    const int PIN_RIGHE[RIGHE] = {2, 3, 4};
-    const int PIN_COLONNE[COLONNE] = {5, 6, 7, 8, 9};
+    // Matrix Configuration
+    #define MATRIX_ROWS 3
+    #define MATRIX_COLS 5
+    const int rowPins[MATRIX_ROWS] = {2, 3, 4};
+    const int colPins[MATRIX_COLS] = {5, 6, 7, 8, 9};
+
+    // Encoder Configuration
     #define NUM_ENCODERS 4
-    const int ENCODER_PINS_A[NUM_ENCODERS] = {20, 18, 14, 10};
-    const int ENCODER_PINS_B[NUM_ENCODERS] = {21, 19, 15, 16};
-    //const int ENCODER_BTN_PINS[NUM_ENCODERS] = {0, 0, 0, 0};
+    const int encoderPinsA[NUM_ENCODERS] = {20, 18, 14, 10};
+    const int encoderPinsB[NUM_ENCODERS] = {21, 19, 15, 16};
+    //const int encoderBtnPins[NUM_ENCODERS] = {0, 0, 0, 0};  // Optional
 #endif
 
-// Instances
+// Create instances
 KeySequence keys;
 SimRacingController controller;
 
-// Button callback
-void onMatrixChange(int profile, int row, int col, bool pressed) {
-    if (pressed) {
-        if (profile == 0) { // ACC profile
-            // Row 1
+// Matrix button callback
+void onMatrixChange(int profile, int row, int col, bool state) {
+    if (profile == 0) { // ACC profile
+        if (state) {
+            // Row 1 - Basic Controls
             if (row == 0) {
                 switch (col) {
                     case 0: keys.sendSequence(ACC_EngagePitLimiter); break;
@@ -50,7 +57,7 @@ void onMatrixChange(int profile, int row, int col, bool pressed) {
                     case 4: keys.sendSequence(ACC_CycleMultifunctionDisplay); break;
                 }
             }
-            // Row 2
+            // Row 2 - Car Systems
             else if (row == 1) {
                 switch (col) {
                     case 0: keys.sendSequence(ACC_Starter); break;
@@ -60,7 +67,7 @@ void onMatrixChange(int profile, int row, int col, bool pressed) {
                     case 4: keys.sendSequence(ACC_Savereplay); break;
                 }
             }
-            // Row 3
+            // Row 3 - Additional Controls
             else if (row == 2) {
                 switch (col) {
                     case 0: keys.sendSequence(ACC_IngitionSequence); break;
@@ -70,9 +77,9 @@ void onMatrixChange(int profile, int row, int col, bool pressed) {
                     case 4: keys.sendSequence(AUX1); break;
                 }
             }
+        } else {
+            keys.releaseAll();
         }
-    } else {
-        keys.releaseAll();
     }
 }
 
@@ -105,24 +112,25 @@ void setup() {
     keys.setDefaultDelay(150);
 
     // Configure controller
-    controller.setMatrix(PIN_RIGHE, RIGHE, PIN_COLONNE, COLONNE);
-    controller.setEncoders(ENCODER_PINS_A, ENCODER_PINS_B, NUM_ENCODERS);
-    controller.setProfiles(1);
-    controller.setDebounceTime(50, 5);  // matrix=50ms, encoder=5ms
-
+    controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
+    controller.setEncoders(encoderPinsA, encoderPinsB, NUM_ENCODERS);
+    // Or with buttons:
+    //controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
+    
     // Set callbacks
     controller.setMatrixCallback(onMatrixChange);
     controller.setEncoderCallback(onEncoderChange);
-
-    // Initialize controller
-    controller.begin();
-
-    // Set encoder divisors
+    
+    // Set encoder sensitivity
     for (int i = 0; i < NUM_ENCODERS; i++) {
         controller.setEncoderDivisor(i, 4);
     }
 
-    delay(1000);  // Wait before starting
+    // Initialize controller
+    controller.begin();
+
+    // Initial delay
+    delay(1000);
 }
 
 void loop() {

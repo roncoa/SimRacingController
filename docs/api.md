@@ -1,4 +1,4 @@
-# SimRacingController API Reference v2.0.0
+# SimRacingController API Reference v2.1.0
 
 ## Initialization
 
@@ -14,6 +14,9 @@ void setMatrix(const int* rowPins, int numRows, const int* colPins, int numCols)
 
 // Direct GPIO configuration
 void setGpio(const int* pins, int numPins);
+
+// I2C Expander configuration
+void setExpander(int sda, int scl, ExpanderType type, int numExpanders);
 
 // Encoder configuration
 void setEncoders(const int* encoderPinsA, const int* encoderPinsB, int numEncoders);  // Without buttons
@@ -32,18 +35,22 @@ void setDebounceTime(unsigned long matrixDebounce, unsigned long encoderDebounce
 - `numCols`: Number of columns in matrix
 - `pins`: Array of GPIO pin numbers
 - `numPins`: Number of GPIO pins
-- `encoderPinsA`: Array of encoder A pin numbers
-- `encoderPinsB`: Array of encoder B pin numbers
-- `encoderBtnPins`: Array of encoder button pin numbers (optional)
+- `sda`: I2C SDA pin (ESP32 only)
+- `scl`: I2C SCL pin (ESP32 only)
+- `type`: Expander type (EXPANDER_MCP23017, EXPANDER_PCF8574, EXPANDER_PCF8574A)
+- `numExpanders`: Number of I2C expanders
+- `encoderPinsA`: Array of first pins for each encoder
+- `encoderPinsB`: Array of second pins for each encoder
+- `encoderBtnPins`: Array of button pins for each encoder (optional)
 - `numEncoders`: Number of encoders
-- `numProfiles`: Number of profiles
+- `numProfiles`: Number of available profiles
 - `matrixDebounce`: Debounce time for matrix/GPIO buttons in ms (default: 50)
 - `encoderDebounce`: Debounce time for encoders in ms (default: 5)
 
 ### Core Methods
 ```cpp
 void begin();  // Initialize hardware
-void update(); // Process inputs (call in loop)
+void update(); // Process all inputs (call in loop)
 ```
 
 ## Callbacks
@@ -57,6 +64,10 @@ void setMatrixCallback(MatrixCallback callback);
 // GPIO button events
 typedef void (*GpioCallback)(int profile, int gpio, bool state);
 void setGpioCallback(GpioCallback callback);
+
+// I2C Expander events
+typedef void (*ExpanderCallback)(int profile, int expander, uint8_t state);
+void setExpanderCallback(ExpanderCallback callback);
 
 // Encoder rotation
 typedef void (*EncoderCallback)(int profile, int encoder, int direction);
@@ -72,9 +83,11 @@ void setEncoderButtonCallback(EncoderButtonCallback callback);
 - `row`: Matrix row index
 - `col`: Matrix column index
 - `gpio`: GPIO pin index
+- `expander`: Expander index
+- `state`: Button state (true=pressed) or expander state byte
 - `encoder`: Encoder index
 - `direction`: 1 for clockwise, -1 for counter-clockwise
-- `state/pressed`: true for press, false for release
+- `pressed`: true for press, false for release
 
 ## Configuration Methods
 ```cpp
@@ -95,6 +108,7 @@ void setProfile(int profile);
 ```cpp
 bool getMatrixState(int row, int col) const;  // Get matrix button state
 bool getGpioState(int gpio) const;            // Get GPIO button state
+uint8_t getExpanderState(int expander) const; // Get expander state byte
 ```
 
 ### Encoders
@@ -114,6 +128,7 @@ int getProfile() const;  // Get current profile
 ### Return Values
 - `getMatrixState`: Current matrix button state
 - `getGpioState`: Current GPIO button state
+- `getExpanderState`: Current expander state byte
 - `getProfile`: Current active profile
 - `getEncoderPosition`: Current encoder position
 - `getEncoderDirection`: Last encoder direction (1/-1)

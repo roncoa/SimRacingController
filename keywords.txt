@@ -1,0 +1,40 @@
+# Syntax Coloring Map For SimRacingController
+
+# Datatypes (KEYWORD1)
+SimRacingController	KEYWORD1
+MatrixConfig	KEYWORD1
+ExpanderType	KEYWORD1
+EncoderConfig	KEYWORD1
+
+# Methods and Functions (KEYWORD2)
+begin	KEYWORD2
+update	KEYWORD2
+setMatrix	KEYWORD2
+setGpio	KEYWORD2
+setExpander	KEYWORD2
+setEncoders	KEYWORD2
+setProfiles	KEYWORD2
+setDebounceTime	KEYWORD2
+setEncoderDivisor	KEYWORD2
+setEncoderPosition	KEYWORD2
+setProfile	KEYWORD2
+getProfile	KEYWORD2
+getMatrixState	KEYWORD2
+getGpioState	KEYWORD2
+getExpanderState	KEYWORD2
+getEncoderPosition	KEYWORD2
+getEncoderDirection	KEYWORD2
+getEncoderSpeed	KEYWORD2
+isEncoderValid	KEYWORD2
+getEncoderButtonState	KEYWORD2
+setMatrixCallback	KEYWORD2
+setGpioCallback	KEYWORD2
+setExpanderCallback	KEYWORD2
+setEncoderCallback	KEYWORD2
+setEncoderButtonCallback	KEYWORD2
+
+# Constants (LITERAL1)
+EXPANDER_NONE	LITERAL1
+EXPANDER_MCP23017	LITERAL1
+EXPANDER_PCF8574	LITERAL1
+EXPANDER_PCF8574A	LITERAL1
