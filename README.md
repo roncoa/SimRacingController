@@ -222,7 +222,7 @@ Requirements:
 
 ## Version History
 
-- 2.1.0 (27/01/2025)
+- 2.1.0
   - Added direct GPIO button support
   - Improved encoder handling
   - Better memory management
