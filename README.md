@@ -178,9 +178,9 @@ Requirements:
 
 ## Documentation
 
-### Detailed Guides
-API Reference
-Hardware Wiring Guide
+## Detailed Guides
+- [API Reference](https://github.com/roncoa/SimRacingController/blob/main/docs/api.md)
+- [Hardware Wiring Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/wiring.md)
 
 ### Key Concepts
 
