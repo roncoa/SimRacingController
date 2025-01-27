@@ -227,7 +227,6 @@ Requirements:
   - Improved encoder handling
   - Better memory management
   - Enhanced documentation
-  - English translation
 - 1.0.1
   - Small fixes
 - 1.0.0
