@@ -178,6 +178,10 @@ Requirements:
 
 ## Documentation
 
+### Detailed Guides
+API Reference
+Hardware Wiring Guide
+
 ### Key Concepts
 
 #### Button Matrix
