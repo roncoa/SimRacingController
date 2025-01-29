@@ -44,7 +44,7 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button,
 ## Hardware Requirements
 
 ### Supported Boards
-## Microcontrollori AVR
+#### Microcontrollori AVR
 - Arduino Uno
 - Arduino Nano
 - Arduino Pro Mini
@@ -53,12 +53,12 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button,
 - Arduino Micro
 - Arduino Pro Micro
 - Altri basati su ATmega328P/ATmega32U4
-## ESP8266
+#### ESP8266
 - NodeMCU
 - Wemos D1 Mini
 - ESP-12E/F
 - Tutti i moduli ESP8266
-## ESP32
+#### ESP32
 - ESP32 Dev Module
 - ESP32-WROOM
 - ESP32-WROVER
