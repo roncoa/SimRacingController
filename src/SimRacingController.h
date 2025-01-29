@@ -11,7 +11,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-// MCP23017 registers
+// MCP23017 registers (using sequential mode)
 #define MCP23017_IODIRA     0x00   // IO direction A
 #define MCP23017_IODIRB     0x01   // IO direction B
 #define MCP23017_IPOLA      0x02   // Input polarity A
@@ -33,13 +33,16 @@
 #define MCP23017_GPIOA      0x12   // Port A
 #define MCP23017_GPIOB      0x13   // Port B
 
-// I2C timeouts and limits
+// System constants and limits
 #define I2C_TIMEOUT_MS      100    // I2C operation timeout
 #define MIN_POWER_SAVE_MS   5000   // Minimum power save timeout
 #define MAX_POWER_SAVE_MS   3600000 // Maximum power save timeout (1 hour)
 #define MAX_ERROR_COUNT     100    // Maximum encoder error count before error
 
-// Error reporting structure
+/**
+ * Error reporting structure
+ * Contains error code and descriptive message
+ */
 struct ControllerError {
     enum ErrorCode {
         NO_ERROR = 0,
@@ -59,27 +62,29 @@ struct ControllerError {
         code(c), message(msg) {}
 };
 
-/*
-   Matrix configuration structure
-*/
+/**
+ * Matrix configuration structure
+ * Contains pin assignments for button matrix
+ */
 struct MatrixConfig {
-    const int* rowPins;
-    const int* colPins;
-    int numRows;
-    int numCols;
+    const int* rowPins;      // Array of row pin numbers
+    const int* colPins;      // Array of column pin numbers
+    int numRows;             // Number of rows in the matrix
+    int numCols;             // Number of columns in the matrix
 
     MatrixConfig(const int* _rowPins, int _numRows, const int* _colPins, int _numCols) :
         rowPins(_rowPins), colPins(_colPins), numRows(_numRows), numCols(_numCols) {}
 };
 
-/*
-   MCP23017 configuration structure
-*/
+/**
+ * MCP23017 configuration structure
+ * Contains settings for each MCP23017 device
+ */
 struct McpConfig {
-    uint8_t address;
-    bool usePullups;
-    bool useInterrupts;
-    uint8_t intPin;
+    uint8_t address;        // I2C address (0x20-0x27)
+    bool usePullups;        // Enable internal pullups
+    bool useInterrupts;     // Enable interrupts
+    uint8_t intPin;         // Arduino pin for interrupts (-1 if not used)
     
     McpConfig(uint8_t addr = 0x20, bool pullups = true, bool ints = false, uint8_t intPin = -1) :
         address(addr), usePullups(pullups), useInterrupts(ints), intPin(intPin) {}
@@ -92,13 +97,14 @@ class SimRacingController {
         
         // Power management
         bool isPowerSaving;
+        bool powerSaveEnabled;      // Power save enable flag
         unsigned long lastActivityTime;
         const unsigned long powerSaveTimeout;
         
         // Error handling
         ControllerError lastError;
         bool (*errorCallback)(const ControllerError&);
-        bool errorReported;  // Flag for preventing duplicate error reports
+        bool errorReported;         // Flag for preventing duplicate error reports
 
         // Button Matrix
         const int numRows;
@@ -118,33 +124,36 @@ class SimRacingController {
         const int numGpio;
 
         // MCP23017 support
-        static const uint8_t MAX_MCP_DEVICES = 8;
-        McpConfig* mcpConfigs;
-        uint8_t numMcpDevices;
-        uint16_t* lastMcpStates;
-        uint16_t* mcpStates;
-        unsigned long* mcpDebounceTime;
-        bool mcpInitialized;
+        static const uint8_t MAX_MCP_DEVICES = 8;  // Maximum number of MCP23017s
+        McpConfig* mcpConfigs;      // Array of MCP configurations
+        uint8_t numMcpDevices;      // Number of configured MCPs
+        uint16_t* lastMcpStates;    // Last state of MCP inputs
+        uint16_t* mcpStates;        // Current state of MCP inputs
+        unsigned long* mcpDebounceTime; // Debounce timers for MCP inputs
+        bool mcpInitialized;        // MCP initialization flag
 
-        // Encoder Configuration Structure
+        /**
+         * Encoder Configuration Structure
+         * Manages state and settings for each rotary encoder
+         */
         struct EncoderConfig {
-            int pinA;
-            int pinB;
-            int pinBtn;
-            uint8_t lastState;
-            int8_t encDir;
-            int32_t position;
-            unsigned long lastTime;
-            unsigned long lastBtnTime;
-            bool lastBtnState;
-            bool btnState;
-            int32_t divisor;
-            int8_t lastDirection;
-            uint32_t errorCount;
-            bool valid;
-            uint16_t speed;
-            unsigned long lastChangeTime;
-            bool errorReported;
+            int pinA;                  // First encoder pin
+            int pinB;                  // Second encoder pin
+            int pinBtn;                // Encoder button pin (-1 if not used)
+            uint8_t lastState;         // Previous encoder state
+            int8_t encDir;            // Current rotation direction
+            int32_t position;          // Current position
+            unsigned long lastTime;    // Last update time
+            unsigned long lastBtnTime; // Last button state change time
+            bool lastBtnState;         // Previous button state
+            bool btnState;             // Current button state
+            int32_t divisor;          // Position increment divisor (1-4)
+            int8_t lastDirection;      // Last recorded direction
+            uint32_t errorCount;       // Error counter for validity check
+            bool valid;                // Encoder validity flag
+            uint16_t speed;           // Rotation speed
+            unsigned long lastChangeTime; // Last position change time
+            bool errorReported;        // Error reporting flag
 
             EncoderConfig() :
                 pinA(0), pinB(0), pinBtn(-1),
@@ -156,12 +165,15 @@ class SimRacingController {
                 errorReported(false) {}
         };
 
-        // Encoder Initialization Configuration
+        /**
+         * Encoder Initialization Configuration
+         * Used during setup to configure multiple encoders
+         */
         struct EncoderInitConfig {
-            const int* pinsA;
-            const int* pinsB;
-            const int* btnPins;
-            int count;
+            const int* pinsA;          // Array of first pins
+            const int* pinsB;          // Array of second pins
+            const int* btnPins;        // Array of button pins (can be nullptr)
+            int count;                 // Number of encoders
 
             EncoderInitConfig(const int* _pinsA, const int* _pinsB, const int* _btnPins, int _count) :
                 pinsA(_pinsA), pinsB(_pinsB), btnPins(_btnPins), count(_count) {}
@@ -197,10 +209,17 @@ class SimRacingController {
         bool checkI2CError(uint8_t error);
 
     public:
+        /**
+         * Constructor
+         * @param powerSaveTimeoutMs Power save timeout in milliseconds (default: 5 minutes)
+         */
         SimRacingController(unsigned long powerSaveTimeoutMs = 300000);
         ~SimRacingController();
 
-        // Configuration Methods
+        /**
+         * Configuration Methods
+         * Must be called before begin()
+         */
         void setMatrix(const int* rowPins, int numRows, const int* colPins, int numCols);
         void setGpio(const int* pins, int numPins);
         void setEncoders(const int* encoderPinsA, const int* encoderPinsB, int numEncoders);
@@ -210,35 +229,50 @@ class SimRacingController {
         void setProfiles(int numProfiles);
         void setDebounceTime(unsigned long matrixDebounce, unsigned long encoderDebounce);
 
-        // Enhanced Configuration Methods
-        bool begin();
-        bool validateConfiguration();
-        bool validatePins();
+        /**
+         * Enhanced Configuration Methods
+         */
+        bool begin();                 // Initialize hardware
+        bool validateConfiguration(); // Validate current configuration
+        bool validatePins();         // Validate pin assignments
         void setErrorCallback(bool (*callback)(const ControllerError&));
         ControllerError getLastError() const;
         void clearError();
 
-        // Core Methods
-        void update();
-        bool tryUpdate();
-        void waitForUpdate();
+        /**
+         * Core Methods
+         */
+        void update();           // Standard update (blocking)
+        bool tryUpdate();        // Non-blocking update
+        void waitForUpdate();    // Blocking update
 
-        // Power Management Methods
+        /**
+         * Power Management Methods
+         */
         bool setPowerSaveTimeout(unsigned long timeoutMs);
-        void sleep();
-        void wake();
+        void sleep();           // Enter power save mode
+        void wake();            // Exit power save mode
         bool isInPowerSave() const;
         bool isUpdateInProgress() const;
+        bool enablePowerSave(); // Enable power save feature
+        bool disablePowerSave(); // Disable power save feature
+        bool isPowerSaveEnabled() const;
 
-        // Encoder Configuration
+        /**
+         * Encoder Configuration
+         */
         void setEncoderDivisor(int encoderIndex, int32_t divisor);
         void setEncoderPosition(int encoderIndex, int32_t position);
 
-        // Profile Management
+        /**
+         * Profile Management
+         */
         void setProfile(int profile);
         int getProfile() const;
 
-        // State Getters
+        /**
+         * State Getters
+         */
         int32_t getEncoderPosition(int index) const;
         int8_t getEncoderDirection(int index) const;
         uint16_t getEncoderSpeed(int index) const;
@@ -248,14 +282,18 @@ class SimRacingController {
         bool isEncoderValid(int index) const;
         bool getEncoderButtonState(int index) const;
 
-        // Callback Types
+        /**
+         * Callback Types
+         */
         typedef void (*MatrixCallback)(int profile, int row, int col, bool state);
         typedef void (*GpioCallback)(int profile, int gpio, bool state);
         typedef void (*EncoderCallback)(int profile, int encoder, int direction);
         typedef void (*EncoderButtonCallback)(int profile, int encoder, bool pressed);
         typedef void (*McpCallback)(int profile, int device, int pin, bool state);
 
-        // Callback Setters
+        /**
+         * Callback Setters
+         */
         void setMatrixCallback(MatrixCallback callback);
         void setGpioCallback(GpioCallback callback);
         void setEncoderCallback(EncoderCallback callback);
