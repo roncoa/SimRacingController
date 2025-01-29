@@ -10,6 +10,8 @@ EncoderConfig	KEYWORD1
 # Methods & Functions (KEYWORD2)
 begin	KEYWORD2
 update	KEYWORD2
+tryUpdate	KEYWORD2
+waitForUpdate	KEYWORD2
 setMatrix	KEYWORD2
 setGpio	KEYWORD2
 setEncoders	KEYWORD2
@@ -17,6 +19,9 @@ setMcpDevices	KEYWORD2
 setProfiles	KEYWORD2
 setDebounceTime	KEYWORD2
 setPowerSaveTimeout	KEYWORD2
+enablePowerSave	KEYWORD2
+disablePowerSave	KEYWORD2
+isPowerSaveEnabled	KEYWORD2
 setEncoderDivisor	KEYWORD2
 setEncoderPosition	KEYWORD2
 setProfile	KEYWORD2
@@ -41,8 +46,6 @@ getLastError	KEYWORD2
 clearError	KEYWORD2
 sleep	KEYWORD2
 wake	KEYWORD2
-tryUpdate	KEYWORD2
-waitForUpdate	KEYWORD2
 validateConfiguration	KEYWORD2
 validatePins	KEYWORD2
 
