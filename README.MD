@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/release/roncoa/SimRacingController.svg)](https://github.com/roncoa/SimRacingController/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, encoders and I2C expander support. Designed specifically for racing simulator controllers, this library offers a robust and efficient solution for building custom control panels.
+Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, encoders and MCP23017 I2C expander support. Designed specifically for racing simulator controllers, this library offers a robust and efficient solution for building custom control panels.
 
 ## Features
 - Button matrix management with configurable debounce
@@ -44,35 +44,18 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button,
 ## Hardware Requirements
 
 ### Supported Boards
-#### Microcontrollori AVR
-- Arduino Uno
-- Arduino Nano
-- Arduino Pro Mini
+- Arduino Uno/Nano (ATmega328P)
 - Arduino Mega
 - Arduino Leonardo
-- Arduino Micro
 - Arduino Pro Micro
-- Altri basati su ATmega328P/ATmega32U4
-#### ESP8266
-- NodeMCU
-- Wemos D1 Mini
-- ESP-12E/F
-- Tutti i moduli ESP8266
-#### ESP32
-- ESP32 Dev Module
-- ESP32-WROOM
-- ESP32-WROVER
-- TTGO T-Display
-- ESP32 NodeMCU
-- ESP32-S2, S3
-- ESP32-C3
-- Tutti i moduli basati su ESP32
+- ESP8266 based boards
+- ESP32 based boards
 
 ### Required Components
 - Push buttons for matrix/GPIO
 - Diodes (1N4148 or similar) for button matrix
 - Rotary encoders (optional)
-- Pull-up resistors (if not using internal pull-ups)
+- Pull-up resistors (10kΩ) if not using internal pull-ups
 - MCP23017 I2C expanders (optional)
 
 ## Basic Usage
@@ -86,9 +69,9 @@ const int MATRIX_COLS = 3;
 const int rowPins[MATRIX_ROWS] = {2, 3, 4};
 const int colPins[MATRIX_COLS] = {5, 6, 7};
 
-// Direct GPIO configuration
+// GPIO configuration
 const int NUM_GPIO = 2;
-const int gpioPins[NUM_GPIO] = {8, 9};  // Direct buttons on pins 8 and 9
+const int gpioPins[NUM_GPIO] = {8, 9};
 
 // Encoder configuration
 const int NUM_ENCODERS = 2;
@@ -128,35 +111,27 @@ void onMcpChange(int profile, int device, int pin, bool state) {
 void setup() {
     Serial.begin(115200);
     
-    // Configure components
+    // Configure inputs
     controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
-    controller.setGpio(gpioPins, NUM_GPIO);  // Configure direct GPIO buttons
+    controller.setGpio(gpioPins, NUM_GPIO);
     controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
     controller.setMcpDevices(mcpConfigs, NUM_MCP);
     
     // Set callbacks
     controller.setMatrixCallback(onMatrixChange);
-    controller.setGpioCallback(onGpioChange);  // GPIO callback
+    controller.setGpioCallback(onGpioChange);
     controller.setEncoderCallback(onEncoderChange);
     controller.setMcpCallback(onMcpChange);
-    
-    // Optional: Set custom debounce times (in milliseconds)
-    controller.setDebounceTime(50, 5);  // 50ms for matrix/GPIO, 5ms for encoders
     
     // Initialize controller
     if (!controller.begin()) {
         Serial.println("Error: " + String(controller.getLastError().message));
-        while(1);
+        while(1);  // Stop if initialization fails
     }
 }
 
 void loop() {
     controller.update();
-    
-    // Optional: Direct state reading example
-    if (controller.getGpioState(0)) {  // Check first GPIO button
-        // Button is pressed
-    }
 }
 ```
 
@@ -194,7 +169,7 @@ Requirements:
 - [Hardware Wiring Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/wiring.md)
 - [MCP23017 Integration Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/mcp23017.md)
 
-### Key Concepts
+### Key Features
 
 #### Button Matrix
 - Efficient scanning algorithm
@@ -203,7 +178,7 @@ Requirements:
 - Independent state tracking
 - Active-low logic
 
-#### Direct GPIO Buttons
+#### Direct GPIO
 - Simple direct button connection
 - Same debounce as matrix
 - Active-low logic with pullups
@@ -240,34 +215,6 @@ Requirements:
 - Recovery mechanisms
 - Detailed error messages
 
-## Troubleshooting
-
-### Common Issues
-1. Matrix Ghosting
-   - Verify diode installation
-   - Check matrix wiring
-   - Ensure proper pullup configuration
-
-2. Encoder Issues
-   - Adjust debounce time
-   - Verify A/B pin connections
-   - Check encoder divisor
-   - Monitor encoder validity
-   - Verify error count
-
-3. MCP23017 Issues
-   - Verify I2C addresses
-   - Check power and pullups
-   - Enable internal pullups
-   - Monitor I2C communication
-   - Check interrupt configuration
-
-4. Power Management Issues
-   - Verify timeout settings
-   - Check activity detection
-   - Monitor power state
-   - Verify pin states
-
 ## Contributing
 1. Fork repository
 2. Create feature branch
@@ -291,7 +238,7 @@ MIT License - See [LICENSE](LICENSE) file
 - Enhanced encoder reliability
 - Improved debouncing
 - Added communication timeouts
-- Better memory management
+- Enhanced memory management
 
 ### 2.0.0
 - Added direct GPIO button support
