@@ -14,64 +14,75 @@ const int MATRIX_COLS = 3;
 const int rowPins[MATRIX_ROWS] = {2, 3, 4};
 const int colPins[MATRIX_COLS] = {5, 6, 7};
 
+// Direct GPIO configuration
+const int NUM_GPIO = 2;
+const int gpioPins[NUM_GPIO] = {8, 9};  // Direct buttons on pins 8 and 9
+
 // Encoder configuration
 const int NUM_ENCODERS = 2;
 const int encoderPinsA[NUM_ENCODERS] = {10, 12};
 const int encoderPinsB[NUM_ENCODERS] = {11, 13};
-const int encoderBtnPins[NUM_ENCODERS] = {14, 15};  // Optional, can be omitted
+const int encoderBtnPins[NUM_ENCODERS] = {14, 15};  // Optional
 
-// Create controller instance
+// MCP23017 configuration
+const uint8_t NUM_MCP = 2;
+McpConfig mcpConfigs[NUM_MCP] = {
+    McpConfig(0x20, true, false),  // Address 0x20, pullups on, no interrupt
+    McpConfig(0x21, true, true, 16) // Address 0x21, pullups on, interrupt on pin 16
+};
+
+// Create controller
 SimRacingController controller;
 
-// Matrix button callback
+// Callback functions
 void onMatrixChange(int profile, int row, int col, bool state) {
-    Serial.print("Matrix Button - Row: ");
-    Serial.print(row);
-    Serial.print(" Col: ");
-    Serial.print(col);
-    Serial.print(" State: ");
-    Serial.println(state ? "PRESSED" : "RELEASED");
+    Serial.printf("Matrix [%d,%d] = %d (Profile %d)\n", row, col, state, profile);
 }
 
-// Encoder rotation callback
+void onGpioChange(int profile, int gpio, bool state) {
+    Serial.printf("GPIO %d = %d (Profile %d)\n", gpio, state, profile);
+}
+
 void onEncoderChange(int profile, int encoder, int direction) {
-    Serial.print("Encoder ");
-    Serial.print(encoder);
-    Serial.print(" Position: ");
-    Serial.print(controller.getEncoderPosition(encoder));
-    Serial.print(" Direction: ");
-    Serial.println(direction > 0 ? "CW" : "CCW");
+    Serial.printf("Encoder %d: %s (Profile %d)\n", 
+        encoder, direction > 0 ? "CW" : "CCW", profile);
 }
 
-// Encoder button callback
-void onEncoderButtonChange(int profile, int encoder, bool state) {
-    Serial.print("Encoder ");
-    Serial.print(encoder);
-    Serial.print(" Button: ");
-    Serial.println(state ? "PRESSED" : "RELEASED");
+void onMcpChange(int profile, int device, int pin, bool state) {
+    Serial.printf("MCP %d Pin %d = %d (Profile %d)\n", 
+        device, pin, state, profile);
 }
 
 void setup() {
-    // Initialize serial communication
     Serial.begin(115200);
-    Serial.println("SimRacingController - Basic Example");
     
-    // Configure matrix and encoders
+    // Configure components
     controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
+    controller.setGpio(gpioPins, NUM_GPIO);  // Configure direct GPIO buttons
     controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
+    controller.setMcpDevices(mcpConfigs, NUM_MCP);
     
     // Set callbacks
     controller.setMatrixCallback(onMatrixChange);
+    controller.setGpioCallback(onGpioChange);  // GPIO callback
     controller.setEncoderCallback(onEncoderChange);
-    controller.setEncoderButtonCallback(onEncoderButtonChange);
+    controller.setMcpCallback(onMcpChange);
+    
+    // Optional: Set custom debounce times (in milliseconds)
+    controller.setDebounceTime(50, 5);  // 50ms for matrix/GPIO, 5ms for encoders
     
     // Initialize controller
-    controller.begin();
-    
-    Serial.println("Controller ready!");
+    if (!controller.begin()) {
+        Serial.println("Error: " + String(controller.getLastError().message));
+        while(1);
+    }
 }
 
 void loop() {
-    // Update controller state
     controller.update();
+    
+    // Optional: Direct state reading example
+    if (controller.getGpioState(0)) {  // Check first GPIO button
+        // Button is pressed
+    }
 }
