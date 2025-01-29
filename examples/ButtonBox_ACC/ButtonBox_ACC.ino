@@ -2,7 +2,7 @@
  * SimRacing ButtonBox ACC
  * v 2.1.0
  * by roncoa@gmail.com
- * 27/01/2025
+ * 29/01/2025
  **************************/
 
 #include <KeySequence.h>
@@ -42,6 +42,15 @@
 // Create instances
 KeySequence keys;
 SimRacingController controller;
+
+// Error callback
+bool onError(const ControllerError& error) {
+    if (DEBUG) {
+        Serial.print("Error: ");
+        Serial.println(error.message);
+    }
+    return true; // Continue operation
+}
 
 // Matrix button callback
 void onMatrixChange(int profile, int row, int col, bool state) {
@@ -105,6 +114,11 @@ void onEncoderChange(int profile, int encoder, int direction) {
 }
 
 void setup() {
+    if (DEBUG) {
+        Serial.begin(115200);
+        Serial.println("SimRacing ButtonBox ACC v2.2.0");
+    }
+
     // Initialize KeySequence
     keys.setDebug(DEBUG);
     keys.begin();
@@ -118,6 +132,7 @@ void setup() {
     //controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
     
     // Set callbacks
+    controller.setErrorCallback(onError);
     controller.setMatrixCallback(onMatrixChange);
     controller.setEncoderCallback(onEncoderChange);
     
@@ -127,7 +142,16 @@ void setup() {
     }
 
     // Initialize controller
-    controller.begin();
+    if (!controller.begin()) {
+        if (DEBUG) {
+            Serial.println("Error: " + String(controller.getLastError().message));
+        }
+        while(1);  // Stop if initialization fails
+    }
+
+    if (DEBUG) {
+        Serial.println("Controller initialized!");
+    }
 
     // Initial delay
     delay(1000);
