@@ -3,12 +3,6 @@
    v 2.1.0
    by roncoa@gmail.com
    29/01/2025
-   
-   Extended version with:
-   - Enhanced error handling
-   - Thread safety
-   - Power management
-   - MCP23017 support
  **************************/
 
 #include "SimRacingController.h"
