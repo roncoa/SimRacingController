@@ -33,8 +33,8 @@ bool setPowerSaveTimeout(unsigned long timeoutMs);
 ```cpp
 struct McpConfig {
     uint8_t address;        // I2C address (0x20-0x27)
-    bool usePullups;       // Enable internal pullups
-    bool useInterrupts;    // Enable interrupts
+    bool usePullups;        // Enable internal pullups
+    bool useInterrupts;     // Enable interrupts
     uint8_t intPin;        // Arduino pin for interrupts (-1 if not used)
     
     McpConfig(uint8_t addr = 0x20, bool pullups = true, 
@@ -52,14 +52,13 @@ struct ControllerError {
         I2C_ERROR = 6,
         TIMEOUT_ERROR = 7
     };
-    
     ErrorCode code;
     const char* message;
 };
 ```
 
 ### Parameters
-- `powerSaveTimeoutMs`: Power save timeout in milliseconds (default: 300000)
+- `powerSaveTimeoutMs`: Power save timeout in milliseconds (default: disabled)
 - `rowPins`: Array of row pin numbers for matrix
 - `numRows`: Number of rows in matrix
 - `colPins`: Array of column pin numbers for matrix
@@ -79,7 +78,7 @@ struct ControllerError {
 
 ### Core Methods
 ```cpp
-bool begin();     // Initialize hardware
+bool begin();     // Initialize hardware with validation
 void update();    // Standard update (blocking)
 bool tryUpdate(); // Non-blocking update
 void waitForUpdate(); // Blocking update
@@ -87,8 +86,8 @@ void waitForUpdate(); // Blocking update
 
 ### Error Handling Methods
 ```cpp
-bool validateConfiguration();
-bool validatePins();
+bool validateConfiguration();  // Validate complete configuration
+bool validatePins();          // Validate all pin assignments
 void setErrorCallback(bool (*callback)(const ControllerError&));
 ControllerError getLastError() const;
 void clearError();
@@ -96,10 +95,13 @@ void clearError();
 
 ### Power Management Methods
 ```cpp
-void sleep();
-void wake();
-bool isInPowerSave() const;
-bool isUpdateInProgress() const;
+bool setPowerSaveTimeout(unsigned long timeoutMs);  // Configure timeout
+bool enablePowerSave();   // Enable power save mode
+bool disablePowerSave();  // Disable power save mode
+bool isPowerSaveEnabled() const;  // Check if enabled
+void sleep();            // Enter power save mode
+void wake();             // Exit power save mode
+bool isInPowerSave() const;  // Check current state
 ```
 
 ## Callbacks
@@ -184,18 +186,41 @@ ControllerError getLastError() const; // Get last error
 ```
 
 ### Return Values
-- `getMatrixState`: Current matrix button state
-- `getGpioState`: Current GPIO button state
-- `getMcpState`: Current MCP23017 pin state
+- `getMatrixState`: true if button pressed
+- `getGpioState`: true if button pressed
+- `getMcpState`: true if pin active
 - `getProfile`: Current active profile
 - `getEncoderPosition`: Current encoder position
 - `getEncoderDirection`: Last encoder direction (1/-1)
 - `getEncoderSpeed`: Encoder rotation speed (steps/second)
 - `isEncoderValid`: true if no errors detected
-- `getEncoderButtonState`: Current encoder button state
+- `getEncoderButtonState`: true if button pressed
 - `isInPowerSave`: true if in power save mode
 - `isUpdateInProgress`: true if update is in progress
 - `getLastError`: Last error structure
+
+## Constants
+
+### System Limits
+```cpp
+#define MAX_MCP_DEVICES    8     // Maximum MCP23017 devices
+#define I2C_TIMEOUT_MS     100   // I2C operation timeout
+#define MIN_POWER_SAVE_MS  5000  // Minimum power save timeout
+#define MAX_POWER_SAVE_MS  3600000  // Maximum power save timeout (1 hour)
+#define MAX_ERROR_COUNT    100   // Maximum encoder error count
+```
+
+### Error Codes
+```cpp
+NO_ERROR = 0            // No error
+INVALID_PIN = 1        // Invalid pin number
+PIN_CONFLICT = 2       // Pin assignment conflict
+INVALID_CONFIG = 3     // Invalid configuration
+ENCODER_MALFUNCTION = 4  // Encoder error detected
+MCP_ERROR = 5         // MCP23017 error
+I2C_ERROR = 6         // I2C communication error
+TIMEOUT_ERROR = 7     // Operation timeout
+```
 
 ## Memory Usage
 - 1 bool per input (matrix/GPIO/MCP) for current state
