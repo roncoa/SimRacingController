@@ -3,17 +3,28 @@
 [![GitHub release](https://img.shields.io/github/release/roncoa/SimRacingController.svg)](https://github.com/roncoa/SimRacingController/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, and encoder support. Designed specifically for racing simulator controllers, this library offers a flexible and efficient solution for building custom control panels.
+Advanced Arduino library for creating SimRacing button boxes with matrix button, direct GPIO, encoders and I2C expander support. Designed specifically for racing simulator controllers, this library offers a robust and efficient solution for building custom control panels.
 
 ## Features
-- Button matrix management with debounce
-- Direct GPIO button support
-- Rotary encoder support with configurable sensitivity
-- Optional encoder push buttons
-- I2C expander support (MCP23017, PCF8574, PCF8574A)
+- Button matrix management with configurable debounce
+- Direct GPIO button support with debounce
+- Rotary encoder support with:
+  - Configurable sensitivity (1-4x)
+  - Real-time speed detection
+  - Error checking and recovery
+  - Optional push button support
+  - Absolute position tracking
+- MCP23017 I2C expander support:
+  - Up to 8 devices (128 additional inputs)
+  - Configurable internal pullups
+  - Optional interrupt support
+  - Built-in debounce
 - Multiple profiles support
 - Event-driven architecture with callbacks
-- Efficient memory usage
+- Power saving mode with configurable timeout
+- Thread-safe operations
+- Enhanced error handling and reporting
+- Efficient memory management
 - Hardware-agnostic design
 
 ## Installation
@@ -39,11 +50,11 @@ Advanced Arduino library for creating SimRacing button boxes with matrix button,
 - ESP32 boards (with custom I2C pins support)
 
 ### Required Components
-- Push buttons for matrix
+- Push buttons for matrix/GPIO
 - Diodes (1N4148 or similar) for button matrix
 - Rotary encoders (optional)
 - Pull-up resistors (if not using internal pull-ups)
-- I2C expanders (optional): MCP23017, PCF8574, or PCF8574A
+- MCP23017 I2C expanders (optional)
 
 ## Basic Usage
 
@@ -60,17 +71,51 @@ const int colPins[MATRIX_COLS] = {5, 6, 7};
 const int NUM_ENCODERS = 2;
 const int encoderPinsA[NUM_ENCODERS] = {10, 12};
 const int encoderPinsB[NUM_ENCODERS] = {11, 13};
+const int encoderBtnPins[NUM_ENCODERS] = {14, 15};  // Optional
+
+// MCP23017 configuration
+const uint8_t NUM_MCP = 2;
+McpConfig mcpConfigs[NUM_MCP] = {
+    McpConfig(0x20, true, false),  // Address 0x20, pullups on, no interrupt
+    McpConfig(0x21, true, true, 9) // Address 0x21, pullups on, interrupt on pin 9
+};
 
 // Create controller
 SimRacingController controller;
 
+// Callback functions
+void onMatrixChange(int profile, int row, int col, bool state) {
+    Serial.printf("Matrix [%d,%d] = %d (Profile %d)\n", row, col, state, profile);
+}
+
+void onEncoderChange(int profile, int encoder, int direction) {
+    Serial.printf("Encoder %d: %s (Profile %d)\n", 
+        encoder, direction > 0 ? "CW" : "CCW", profile);
+}
+
+void onMcpChange(int profile, int device, int pin, bool state) {
+    Serial.printf("MCP %d Pin %d = %d (Profile %d)\n", 
+        device, pin, state, profile);
+}
+
 void setup() {
+    Serial.begin(115200);
+    
     // Configure components
     controller.setMatrix(rowPins, MATRIX_ROWS, colPins, MATRIX_COLS);
-    controller.setEncoders(encoderPinsA, encoderPinsB, NUM_ENCODERS);
+    controller.setEncoders(encoderPinsA, encoderPinsB, encoderBtnPins, NUM_ENCODERS);
+    controller.setMcpDevices(mcpConfigs, NUM_MCP);
+    
+    // Set callbacks
+    controller.setMatrixCallback(onMatrixChange);
+    controller.setEncoderCallback(onEncoderChange);
+    controller.setMcpCallback(onMcpChange);
     
     // Initialize controller
-    controller.begin();
+    if (!controller.begin()) {
+        Serial.println("Error: " + String(controller.getLastError().message));
+        while(1);
+    }
 }
 
 void loop() {
@@ -81,14 +126,16 @@ void loop() {
 ## Examples
 
 ### Basic
-Simple button and encoder reading with serial output.
+Simple button, encoder and MCP23017 reading with serial output.
 - File: `examples/Basic/Basic.ino`
 
 ### Advanced
 Complete setup showing all features including:
 - Matrix and GPIO button handling
 - Encoder configuration and reading
-- I2C expander support
+- MCP23017 expander support
+- Power management
+- Error handling
 - Profile management
 - File: `examples/Advanced/Advanced.ino`
 
@@ -108,37 +155,53 @@ Requirements:
 ### Detailed Guides
 - [API Reference](https://github.com/roncoa/SimRacingController/blob/main/docs/api.md)
 - [Hardware Wiring Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/wiring.md)
+- [MCP23017 Integration Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/mcp23017.md)
 
 ### Key Concepts
 
 #### Button Matrix
 - Efficient scanning algorithm
-- Built-in debounce
+- Configurable debounce
 - No ghosting with proper diode configuration
 - Independent state tracking
+- Active-low logic
 
 #### Direct GPIO Buttons
 - Simple direct button connection
 - Same debounce as matrix
+- Active-low logic with pullups
 - Ideal for single buttons
 
 #### Encoders
 - Configurable sensitivity (1-4x)
 - Real-time speed detection
-- Error checking
+- Error checking and reporting
 - Optional push button support
-- Position tracking
+- Absolute position tracking
+- Efficient state machine implementation
 
-#### I2C Expanders
-- Support for multiple expander types
-- Automatic address handling
-- Built-in debounce
-- Easy configuration
+#### MCP23017 Support
+- Up to 8 devices (128 inputs)
+- Configurable internal pullups
+- Optional interrupt support
+- Individual pin debounce
+- Error detection and recovery
+- Active-low logic
+- Efficient I2C communication
 
-#### Profiles
-- Multiple profile support
-- Easy profile switching
-- Separate callbacks per profile
+#### Power Management
+- Automatic sleep mode
+- Configurable timeout
+- Wake on activity
+- Low power consumption
+- Pin state preservation
+
+#### Error Handling
+- Comprehensive error reporting
+- Error callbacks
+- Validation checks
+- Recovery mechanisms
+- Detailed error messages
 
 ## Troubleshooting
 
@@ -153,11 +216,20 @@ Requirements:
    - Verify A/B pin connections
    - Check encoder divisor
    - Monitor encoder validity
+   - Verify error count
 
-3. I2C Expander Issues
+3. MCP23017 Issues
    - Verify I2C addresses
    - Check power and pullups
    - Enable internal pullups
+   - Monitor I2C communication
+   - Check interrupt configuration
+
+4. Power Management Issues
+   - Verify timeout settings
+   - Check activity detection
+   - Monitor power state
+   - Verify pin states
 
 ## Contributing
 1. Fork repository
@@ -174,8 +246,18 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## Version History
 
+### 2.2.0
+- Added enhanced MCP23017 support
+- Improved error handling system
+- Added power management
+- Added thread safety
+- Enhanced encoder reliability
+- Improved debouncing
+- Added communication timeouts
+- Better memory management
+
 ### 2.1.0
-- Added I2C expander support (MCP23017, PCF8574, PCF8574A)
+- Added basic I2C expander support
 - Improved encoder handling
 - Added ESP32 custom I2C pins support
 - Enhanced memory management
