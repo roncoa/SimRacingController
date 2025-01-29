@@ -9,6 +9,7 @@
 
 /*
    Constructor - Initializes all variables to safe default values
+   @param powerSaveTimeoutMs Power save timeout in milliseconds (default: 5 minutes)
 */
 SimRacingController::SimRacingController(unsigned long powerSaveTimeoutMs) :
     // Thread safety
@@ -16,6 +17,7 @@ SimRacingController::SimRacingController(unsigned long powerSaveTimeoutMs) :
     
     // Power management
     isPowerSaving(false),
+    powerSaveEnabled(false),     // Power save disabled by default
     lastActivityTime(0),
     powerSaveTimeout(powerSaveTimeoutMs),
     
@@ -32,7 +34,7 @@ SimRacingController::SimRacingController(unsigned long powerSaveTimeoutMs) :
     lastMatrixStates(nullptr),
     matrixStates(nullptr),
     lastMatrixDebounceTime(nullptr),
-    matrixDebounceDelay(50),
+    matrixDebounceDelay(50),    // 50ms default debounce for buttons
 
     // Direct GPIO
     gpioPins(nullptr),
@@ -52,7 +54,7 @@ SimRacingController::SimRacingController(unsigned long powerSaveTimeoutMs) :
     // Encoders
     numEncoders(0),
     encoders(nullptr),
-    encoderDebounceTime(5),
+    encoderDebounceTime(5),    // 5ms default debounce for encoders
 
     // Profiles
     currentProfile(0),
@@ -83,6 +85,12 @@ SimRacingController::~SimRacingController() {
 /*
    I2C Helper Methods
 */
+
+/**
+ * Waits for I2C data with timeout
+ * @param startTime Starting time for timeout calculation
+ * @return true if data available, false if timeout
+ */
 bool SimRacingController::waitForI2C(unsigned long startTime) const {
     while (Wire.available() == 0) {
         if (millis() - startTime > I2C_TIMEOUT_MS) {
@@ -92,6 +100,11 @@ bool SimRacingController::waitForI2C(unsigned long startTime) const {
     return true;
 }
 
+/**
+ * Checks I2C error codes and updates error state
+ * @param error I2C error code
+ * @return true if no error, false otherwise
+ */
 bool SimRacingController::checkI2CError(uint8_t error) {
     switch (error) {
         case 0:
@@ -119,6 +132,14 @@ bool SimRacingController::checkI2CError(uint8_t error) {
 /*
    MCP23017 Methods
 */
+
+/**
+ * Writes a value to an MCP23017 register
+ * @param device Device index
+ * @param reg Register address
+ * @param value Value to write
+ * @return true if successful, false on error
+ */
 bool SimRacingController::writeMcpRegister(uint8_t device, uint8_t reg, uint8_t value) {
     if (device >= numMcpDevices) {
         lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid MCP device");
@@ -131,6 +152,13 @@ bool SimRacingController::writeMcpRegister(uint8_t device, uint8_t reg, uint8_t 
     return checkI2CError(Wire.endTransmission());
 }
 
+/**
+ * Reads a value from an MCP23017 register
+ * @param device Device index
+ * @param reg Register address
+ * @param value Reference to store read value
+ * @return true if successful, false on error
+ */
 bool SimRacingController::readMcpRegister(uint8_t device, uint8_t reg, uint8_t& value) {
     if (device >= numMcpDevices) {
         lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid MCP device");
@@ -152,6 +180,12 @@ bool SimRacingController::readMcpRegister(uint8_t device, uint8_t reg, uint8_t& 
     return true;
 }
 
+/**
+ * Reads both ports (A and B) from an MCP23017
+ * @param device Device index
+ * @param value Reference to store 16-bit port values
+ * @return true if successful, false on error
+ */
 bool SimRacingController::readMcpPorts(uint8_t device, uint16_t& value) {
     if (device >= numMcpDevices) {
         lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid MCP device");
@@ -173,6 +207,11 @@ bool SimRacingController::readMcpPorts(uint8_t device, uint16_t& value) {
     return true;
 }
 
+/**
+ * Initializes an MCP23017 device
+ * @param device Device index
+ * @return true if successful, false on error
+ */
 bool SimRacingController::initializeMcp(uint8_t device) {
     if (device >= numMcpDevices) return false;
 
@@ -211,14 +250,26 @@ bool SimRacingController::initializeMcp(uint8_t device) {
 }
 
 /*
-   Configuration Methods
+   Matrix Configuration
 */
+
+/**
+ * Configures button matrix pins
+ * @param rowPins Array of row pin numbers
+ * @param numRows Number of rows
+ * @param colPins Array of column pin numbers
+ * @param numCols Number of columns
+ */
 void SimRacingController::setMatrix(const int* rowPins, int numRows,
                                     const int* colPins, int numCols) {
     MatrixConfig config(rowPins, numRows, colPins, numCols);
     configureMatrix(config);
 }
 
+/**
+ * Internal matrix configuration
+ * @param config Matrix configuration structure
+ */
 void SimRacingController::configureMatrix(const MatrixConfig& config) {
     cleanupArrays();
 
@@ -230,6 +281,15 @@ void SimRacingController::configureMatrix(const MatrixConfig& config) {
     initializeArrays();
 }
 
+/*
+   GPIO Configuration
+*/
+
+/**
+ * Configures direct GPIO buttons
+ * @param pins Array of GPIO pin numbers
+ * @param numPins Number of GPIO pins
+ */
 void SimRacingController::setGpio(const int* pins, int numPins) {
     delete[] lastGpioStates;
     delete[] gpioStates;
@@ -243,6 +303,16 @@ void SimRacingController::setGpio(const int* pins, int numPins) {
     gpioDebounceTime = new unsigned long[numPins]();
 }
 
+/*
+   MCP23017 Configuration
+*/
+
+/**
+ * Configures MCP23017 devices
+ * @param configs Array of MCP configurations
+ * @param numDevices Number of MCP devices
+ * @return true if successful, false on error
+ */
 bool SimRacingController::setMcpDevices(const McpConfig* configs, uint8_t numDevices) {
     if (numDevices > MAX_MCP_DEVICES || !configs) {
         lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid MCP config");
@@ -268,17 +338,38 @@ bool SimRacingController::setMcpDevices(const McpConfig* configs, uint8_t numDev
     return true;
 }
 
+/*
+   Encoder Configuration
+*/
+
+/**
+ * Configures encoders without buttons
+ * @param encoderPinsA Array of first encoder pins
+ * @param encoderPinsB Array of second encoder pins
+ * @param numEncoders Number of encoders
+ */
 void SimRacingController::setEncoders(const int* encoderPinsA, const int* encoderPinsB,
                                       int numEncoders) {
     setEncoders(encoderPinsA, encoderPinsB, nullptr, numEncoders);
 }
 
+/**
+ * Configures encoders with optional buttons
+ * @param encoderPinsA Array of first encoder pins
+ * @param encoderPinsB Array of second encoder pins
+ * @param encoderBtnPins Array of button pins (optional)
+ * @param numEncoders Number of encoders
+ */
 void SimRacingController::setEncoders(const int* encoderPinsA, const int* encoderPinsB,
                                       const int* encoderBtnPins, int numEncoders) {
     EncoderInitConfig config(encoderPinsA, encoderPinsB, encoderBtnPins, numEncoders);
     configureEncoders(config);
 }
 
+/**
+ * Internal encoder configuration
+ * @param config Encoder configuration structure
+ */
 void SimRacingController::configureEncoders(const EncoderInitConfig& config) {
     delete[] encoders;
 
@@ -291,9 +382,17 @@ void SimRacingController::configureEncoders(const EncoderInitConfig& config) {
         encoders[i].pinBtn = config.btnPins ? config.btnPins[i] : -1;
         encoders[i].divisor = 4;
         encoders[i].valid = true;
+        encoders[i].errorReported = false;
     }
 }
 
+/*
+   Array Management
+*/
+
+/**
+ * Initializes matrix state arrays
+ */
 void SimRacingController::initializeArrays() {
     lastMatrixStates = new bool*[numRows];
     matrixStates = new bool*[numRows];
@@ -306,6 +405,9 @@ void SimRacingController::initializeArrays() {
     }
 }
 
+/**
+ * Cleanup matrix state arrays
+ */
 void SimRacingController::cleanupArrays() {
     if (lastMatrixStates) {
         for (int i = 0; i < numRows; i++) {
@@ -326,6 +428,11 @@ void SimRacingController::cleanupArrays() {
 /*
    Configuration Validation
 */
+
+/**
+ * Validates all pin assignments
+ * @return true if valid, false otherwise
+ */
 bool SimRacingController::validatePins() {
     // Matrix pins validation
     for (int i = 0; i < numRows; i++) {
@@ -367,6 +474,10 @@ bool SimRacingController::validatePins() {
     return true;
 }
 
+/**
+ * Validates complete configuration
+ * @return true if valid, false otherwise
+ */
 bool SimRacingController::validateConfiguration() {
     if (numRows > 0 && numCols > 0) {
         if (!rowPins || !colPins) {
@@ -394,8 +505,13 @@ bool SimRacingController::validateConfiguration() {
 }
 
 /*
-   Initialization
+   Core Initialization
 */
+
+/**
+ * Initializes all hardware components
+ * @return true if successful, false on error
+ */
 bool SimRacingController::begin() {
     clearError();
     
@@ -450,12 +566,20 @@ bool SimRacingController::begin() {
 /*
    Update Methods
 */
+
+/**
+ * Standard update method (blocking)
+ */
 void SimRacingController::update() {
     if (!tryUpdate()) {
         waitForUpdate();
     }
 }
 
+/**
+ * Non-blocking update attempt
+ * @return true if update successful, false if busy
+ */
 bool SimRacingController::tryUpdate() {
     if (isUpdating) {
         return false;
@@ -464,7 +588,8 @@ bool SimRacingController::tryUpdate() {
     isUpdating = true;
     
     // Check for power save mode
-    if (!isPowerSaving && millis() - lastActivityTime > powerSaveTimeout) {
+    if (powerSaveEnabled && !isPowerSaving && 
+        millis() - lastActivityTime > powerSaveTimeout) {
         sleep();
     }
     
@@ -539,6 +664,9 @@ bool SimRacingController::tryUpdate() {
     return true;
 }
 
+/**
+ * Blocking wait for update completion
+ */
 void SimRacingController::waitForUpdate() {
     while (!tryUpdate()) {
         delay(1);
@@ -546,8 +674,96 @@ void SimRacingController::waitForUpdate() {
 }
 
 /*
-   MCP update
+   Power Management
 */
+
+/**
+ * Sets power save timeout
+ * @param timeoutMs Timeout in milliseconds
+ * @return true if valid timeout, false otherwise
+ */
+bool SimRacingController::setPowerSaveTimeout(unsigned long timeoutMs) {
+    if (timeoutMs < MIN_POWER_SAVE_MS || timeoutMs > MAX_POWER_SAVE_MS) {
+        lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid power save timeout");
+        return false;
+    }
+    const_cast<unsigned long&>(powerSaveTimeout) = timeoutMs;
+    powerSaveEnabled = true;  // Enable power save when timeout is set
+    return true;
+}
+
+/**
+ * Enables power save mode
+ */
+bool SimRacingController::enablePowerSave() {
+    powerSaveEnabled = true;
+    lastActivityTime = millis();
+    return true;
+}
+
+/**
+ * Disables power save mode
+ */
+bool SimRacingController::disablePowerSave() {
+    powerSaveEnabled = false;
+    if (isPowerSaving) {
+        wake();
+    }
+    return true;
+}
+
+/**
+ * Enters power save mode
+ */
+void SimRacingController::sleep() {
+    if (!powerSaveEnabled) return;
+    
+    isPowerSaving = true;
+    
+    // Set all output pins to INPUT to save power
+    for (int i = 0; i < numRows; i++) {
+        pinMode(rowPins[i], INPUT);
+    }
+}
+
+/**
+ * Exits power save mode
+ */
+void SimRacingController::wake() {
+    isPowerSaving = false;
+    lastActivityTime = millis();
+    
+    // Restore pin modes
+    for (int i = 0; i < numRows; i++) {
+        pinMode(rowPins[i], OUTPUT);
+        digitalWrite(rowPins[i], HIGH);
+    }
+}
+
+/**
+ * Checks if power save is enabled
+ * @return true if enabled, false otherwise
+ */
+bool SimRacingController::isPowerSaveEnabled() const {
+    return powerSaveEnabled;
+}
+
+/**
+ * Clears current error state
+ */
+void SimRacingController::clearError() {
+    lastError = ControllerError();
+    errorReported = false;
+}
+
+/*
+   Input Updates
+*/
+
+/**
+ * Updates MCP23017 device state
+ * @param device Device index
+ */
 void SimRacingController::updateMcp(uint8_t device) {
     if (device >= numMcpDevices) return;
 
@@ -574,52 +790,22 @@ void SimRacingController::updateMcp(uint8_t device) {
     }
 }
 
+/**
+ * Processes MCP input changes
+ * @param device Device index
+ * @param pin Pin number
+ * @param state New state
+ */
 void SimRacingController::processMcpChange(uint8_t device, int pin, bool state) {
     if (onMcpChange) {
         onMcpChange(currentProfile, device, pin, state);
     }
 }
 
-/*
-   Power Management
-*/
-bool SimRacingController::setPowerSaveTimeout(unsigned long timeoutMs) {
-    if (timeoutMs < MIN_POWER_SAVE_MS || timeoutMs > MAX_POWER_SAVE_MS) {
-        lastError = ControllerError(ControllerError::INVALID_CONFIG, "Invalid power save timeout");
-        return false;
-    }
-    const_cast<unsigned long&>(powerSaveTimeout) = timeoutMs;
-    return true;
-}
-
-void SimRacingController::sleep() {
-    isPowerSaving = true;
-    
-    // Set all output pins to INPUT to save power
-    for (int i = 0; i < numRows; i++) {
-        pinMode(rowPins[i], INPUT);
-    }
-}
-
-void SimRacingController::wake() {
-    isPowerSaving = false;
-    lastActivityTime = millis();
-    
-    // Restore pin modes
-    for (int i = 0; i < numRows; i++) {
-        pinMode(rowPins[i], OUTPUT);
-        digitalWrite(rowPins[i], HIGH);
-    }
-}
-
-void SimRacingController::clearError() {
-    lastError = ControllerError();
-    errorReported = false;
-}
-
-/*
-   Encoder Methods
-*/
+/**
+ * Updates encoder state
+ * @param index Encoder index
+ */
 void SimRacingController::updateEncoder(int index) {
     if (index < 0 || index >= numEncoders) return;
 
@@ -723,52 +909,67 @@ void SimRacingController::updateEncoder(int index) {
     }
 }
 
-/*
-   Callbacks
-*/
+/**
+ * Processes matrix button changes
+ * @param row Row index
+ * @param col Column index
+ * @param state New state
+ */
 void SimRacingController::processMatrixPress(int row, int col, bool state) {
     if (onMatrixChange) {
         onMatrixChange(currentProfile, row, col, state);
     }
 }
 
-void SimRacingController::setMatrixCallback(MatrixCallback callback) {
-    onMatrixChange = callback;
-}
-
-void SimRacingController::setGpioCallback(GpioCallback callback) {
-    onGpioChange = callback;
-}
-
-void SimRacingController::setEncoderCallback(EncoderCallback callback) {
-    onEncoderChange = callback;
-}
-
-void SimRacingController::setEncoderButtonCallback(EncoderButtonCallback callback) {
-    onEncoderButtonChange = callback;
-}
-
-void SimRacingController::setMcpCallback(McpCallback callback) {
-    onMcpChange = callback;
-}
-
-void SimRacingController::setErrorCallback(bool (*callback)(const ControllerError&)) {
-    errorCallback = callback;
-}
-
 /*
    Configuration Methods
 */
+
+/**
+ * Sets number of available profiles
+ * @param numProfiles Number of profiles
+ */
 void SimRacingController::setProfiles(int numProfiles) {
     const_cast<int&>(this->numProfiles) = numProfiles;
 }
 
+/**
+ * Sets debounce times
+ * @param matrixDebounce Debounce time for matrix/GPIO/MCP (ms)
+ * @param encoderDebounce Debounce time for encoders (ms)
+ */
 void SimRacingController::setDebounceTime(unsigned long matrixDebounce,
     unsigned long encoderDebounce) {
     const_cast<unsigned long&>(matrixDebounceDelay) = matrixDebounce;
     const_cast<unsigned long&>(encoderDebounceTime) = encoderDebounce;
 }
 
+/**
+ * Sets encoder resolution divisor
+ * @param encoderIndex Index of encoder
+ * @param divisor Divisor value (1-4)
+ */
+void SimRacingController::setEncoderDivisor(int encoderIndex, int32_t divisor) {
+    if (encoderIndex >= 0 && encoderIndex < numEncoders && divisor > 0 && divisor <= 4) {
+        encoders[encoderIndex].divisor = divisor;
+    }
+}
+
+/**
+ * Sets encoder absolute position
+ * @param encoderIndex Index of encoder
+ * @param position New position
+ */
+void SimRacingController::setEncoderPosition(int encoderIndex, int32_t position) {
+    if (encoderIndex >= 0 && encoderIndex < numEncoders) {
+        encoders[encoderIndex].position = position;
+    }
+}
+
+/**
+ * Sets active profile
+ * @param profile Profile number
+ */
 void SimRacingController::setProfile(int profile) {
     if (profile >= 0 && profile < numProfiles) {
         currentProfile = profile;
@@ -776,20 +977,88 @@ void SimRacingController::setProfile(int profile) {
 }
 
 /*
+   Callback Setters
+*/
+
+/**
+ * Sets matrix change callback
+ * @param callback Callback function
+ */
+void SimRacingController::setMatrixCallback(MatrixCallback callback) {
+    onMatrixChange = callback;
+}
+
+/**
+ * Sets GPIO change callback
+ * @param callback Callback function
+ */
+void SimRacingController::setGpioCallback(GpioCallback callback) {
+    onGpioChange = callback;
+}
+
+/**
+ * Sets encoder change callback
+ * @param callback Callback function
+ */
+void SimRacingController::setEncoderCallback(EncoderCallback callback) {
+    onEncoderChange = callback;
+}
+
+/**
+ * Sets encoder button callback
+ * @param callback Callback function
+ */
+void SimRacingController::setEncoderButtonCallback(EncoderButtonCallback callback) {
+    onEncoderButtonChange = callback;
+}
+
+/**
+ * Sets MCP change callback
+ * @param callback Callback function
+ */
+void SimRacingController::setMcpCallback(McpCallback callback) {
+    onMcpChange = callback;
+}
+
+/**
+ * Sets error callback
+ * @param callback Callback function
+ */
+void SimRacingController::setErrorCallback(bool (*callback)(const ControllerError&)) {
+    errorCallback = callback;
+}
+
+/*
    State Getters
 */
+
+/**
+ * @return true if in power save mode
+ */
 bool SimRacingController::isInPowerSave() const {
     return isPowerSaving;
 }
 
+/**
+ * @return true if update in progress
+ */
 bool SimRacingController::isUpdateInProgress() const {
     return isUpdating;
 }
 
+/**
+ * @return Current active profile
+ */
 int SimRacingController::getProfile() const {
     return currentProfile;
 }
 
+/**
+ * Gets matrix button state
+ * @param row Row index
+ * @param col Column index
+ * @return true if button pressed
+ */
 bool SimRacingController::getMatrixState(int row, int col) const {
     if (row >= 0 && row < numRows && col >= 0 && col < numCols) {
         return matrixStates[row][col];
@@ -797,6 +1066,11 @@ bool SimRacingController::getMatrixState(int row, int col) const {
     return false;
 }
 
+/**
+ * Gets GPIO button state
+ * @param gpio GPIO index
+ * @return true if button pressed
+ */
 bool SimRacingController::getGpioState(int gpio) const {
     if (gpio >= 0 && gpio < numGpio) {
         return gpioStates[gpio];
@@ -804,11 +1078,22 @@ bool SimRacingController::getGpioState(int gpio) const {
     return false;
 }
 
+/**
+ * Gets MCP pin state
+ * @param device Device index
+ * @param pin Pin number
+ * @return true if pin active
+ */
 bool SimRacingController::getMcpState(uint8_t device, uint8_t pin) const {
     if (device >= numMcpDevices || pin >= 16) return false;
     return (mcpStates[device] & (1 << pin)) != 0;
 }
 
+/**
+ * Gets encoder current position
+ * @param index Encoder index
+ * @return Current position value
+ */
 int32_t SimRacingController::getEncoderPosition(int index) const {
     if (index >= 0 && index < numEncoders) {
         return encoders[index].position;
@@ -816,6 +1101,11 @@ int32_t SimRacingController::getEncoderPosition(int index) const {
     return 0;
 }
 
+/**
+ * Gets encoder last direction
+ * @param index Encoder index
+ * @return Last direction (-1: CCW, 0: none, 1: CW)
+ */
 int8_t SimRacingController::getEncoderDirection(int index) const {
     if (index >= 0 && index < numEncoders) {
         return encoders[index].lastDirection;
@@ -823,6 +1113,11 @@ int8_t SimRacingController::getEncoderDirection(int index) const {
     return 0;
 }
 
+/**
+ * Gets encoder current speed
+ * @param index Encoder index
+ * @return Current speed in steps per second
+ */
 uint16_t SimRacingController::getEncoderSpeed(int index) const {
     if (index >= 0 && index < numEncoders) {
         return encoders[index].speed;
@@ -830,6 +1125,11 @@ uint16_t SimRacingController::getEncoderSpeed(int index) const {
     return 0;
 }
 
+/**
+ * Checks encoder validity
+ * @param index Encoder index
+ * @return true if encoder working correctly
+ */
 bool SimRacingController::isEncoderValid(int index) const {
     if (index >= 0 && index < numEncoders) {
         return encoders[index].valid;
@@ -837,6 +1137,11 @@ bool SimRacingController::isEncoderValid(int index) const {
     return false;
 }
 
+/**
+ * Gets encoder button state
+ * @param index Encoder index
+ * @return true if button pressed, false if not or not configured
+ */
 bool SimRacingController::getEncoderButtonState(int index) const {
     if (index >= 0 && index < numEncoders && encoders[index].pinBtn >= 0) {
         return encoders[index].btnState;
@@ -844,21 +1149,10 @@ bool SimRacingController::getEncoderButtonState(int index) const {
     return false;
 }
 
+/**
+ * Gets last error
+ * @return Last error structure
+ */
 ControllerError SimRacingController::getLastError() const {
     return lastError;
-}
-
-/*
-   Encoder Configuration
-*/
-void SimRacingController::setEncoderDivisor(int encoderIndex, int32_t divisor) {
-    if (encoderIndex >= 0 && encoderIndex < numEncoders && divisor > 0 && divisor <= 4) {
-        encoders[encoderIndex].divisor = divisor;
-    }
-}
-
-void SimRacingController::setEncoderPosition(int encoderIndex, int32_t position) {
-    if (encoderIndex >= 0 && encoderIndex < numEncoders) {
-        encoders[encoderIndex].position = position;
-    }
 }
