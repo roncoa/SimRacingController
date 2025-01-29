@@ -264,7 +264,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## Version History
 
-### 2.2.0
+### 2.1.0
 - Added enhanced MCP23017 support
 - Improved error handling system
 - Added power management
@@ -273,12 +273,6 @@ MIT License - See [LICENSE](LICENSE) file
 - Improved debouncing
 - Added communication timeouts
 - Better memory management
-
-### 2.1.0
-- Added basic I2C expander support
-- Improved encoder handling
-- Added ESP32 custom I2C pins support
-- Enhanced memory management
 
 ### 2.0.0
 - Added direct GPIO button support
