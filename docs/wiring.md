@@ -1,13 +1,14 @@
 # Hardware Wiring Guide v2.1.0
 
 ## Button Matrix
+
 ### Basic Configuration
 ```
 3x5 Matrix Example:
-[ROW1] --- [BTN] --- [COL1]
-[ROW1] --- [BTN] --- [COL2]
-[ROW2] --- [BTN] --- [COL1]
-[ROW2] --- [BTN] --- [COL2]
+[ROW1] --- [BTN+DIODE] --- [COL1]
+[ROW1] --- [BTN+DIODE] --- [COL2]
+[ROW2] --- [BTN+DIODE] --- [COL1]
+[ROW2] --- [BTN+DIODE] --- [COL2]
 
 Notes:
 - ROW pins: OUTPUT, normally HIGH
@@ -20,18 +21,21 @@ Notes:
 ```
 Arduino        Button Matrix
 ---------     -------------
-ROW1 (2) ----+----[BTN]----+----[BTN]----+
-             |             |             |
-ROW2 (3) ----+----[BTN]----+----[BTN]----+
-             |             |             |
-ROW3 (4) ----+----[BTN]----+----[BTN]----+
-             |             |             |
-             |  COL1 (5)   |  COL2 (6)   |  COL3 (7)
-             ↓             ↓             ↓
-         INPUT_PULLUP  INPUT_PULLUP  INPUT_PULLUP
+ROW1 (2) ----+----[BTN]----[>|]----+----[BTN]----[>|]----+
+             |                      |                      |
+ROW2 (3) ----+----[BTN]----[>|]----+----[BTN]----[>|]----+
+             |                      |                      |
+ROW3 (4) ----+----[BTN]----[>|]----+----[BTN]----[>|]----+
+             |                      |                      |
+             |     COL1 (5)        |     COL2 (6)         |  COL3 (7)
+             ↓                      ↓                      ↓
+         INPUT_PULLUP          INPUT_PULLUP           INPUT_PULLUP
+
+[>|] = Diode (1N4148 or similar, cathode to column)
 ```
 
 ## Direct GPIO Buttons
+
 ### Basic Configuration
 ```
 Simple direct connection:
@@ -49,6 +53,7 @@ Notes:
 ```
 
 ## Rotary Encoders
+
 ### Basic Configuration
 ```
 Encoder pinout:
@@ -68,15 +73,10 @@ Notes:
 ```
 Arduino         Encoder
 -------         -------
-Pin A   <----- CLK (A)
-Pin B   <----- DT  (B)
-Button  <----- SW  (opt)
+Pin A   <----- CLK (A)  ----[100nF]---- GND  (Optional debounce)
+Pin B   <----- DT  (B)  ----[100nF]---- GND  (Optional debounce)
+Button  <----- SW  (opt) ---[100nF]---- GND  (Optional debounce)
 GND    <----- Common (C)
-
-Optional debouncing:
-Pin A   <----- [100nF] ----- GND
-Pin B   <----- [100nF] ----- GND
-Button  <----- [100nF] ----- GND
 ```
 
 ### Multiple Encoders
@@ -90,6 +90,11 @@ Arduino         Encoder1        Encoder2
 19      <------------------- DT  (B)
 23      <------------------- SW  (opt)
 GND     <----- GND    <----- GND
+
+Notes:
+- Keep wires short and equal length for each encoder
+- Consider adding shield connection to GND
+- Capacitors recommended for long wires
 ```
 
 ## MCP23017 I2C Expander
@@ -98,22 +103,13 @@ GND     <----- GND    <----- GND
 ```
 Arduino         MCP23017
 -------         --------
-SDA     <----> SDA
-SCL     <----> SCL
-GND     <----> GND/VSS
-VCC     <----> VDD
-INT     <----> INTA/INTB (optional)
-         ----> A0 (Address select)
-         ----> A1 (Address select)
-         ----> A2 (Address select)
-         ----> RESET (VCC)
-
-Notes:
-- Support for up to 8 devices
-- Each device adds 16 inputs
-- Optional interrupt support
-- Configurable internal pull-ups
-- Active LOW logic
+SDA     <----> SDA      <--[4.7kΩ]--> VCC
+SCL     <----> SCL      <--[4.7kΩ]--> VCC
+INT     <----- INT      (optional)
+VCC     <----> VDD      ---[100nF]--> GND
+GND     <----> VSS
+         ----> A0,A1,A2 (Address select)
+         ----> RESET    --> VCC
 ```
 
 ### Address Configuration
@@ -138,11 +134,17 @@ SDA     <----> SDA      <----> SDA
 SCL     <----> SCL      <----> SCL
 INT1    <----- INTA
 INT2    <----------------- INTA
-GND     <----> GND      <----> GND
-VCC     <----> VCC      <----> VCC
-         ----> A0 (GND)  ----> A0 (VCC)
+GND     <----> VSS      <----> VSS
+VCC     <----> VDD      <----> VDD
+         ----> A0 (GND)  ----> A0 (VCC)  # Different addresses
          ----> A1 (GND)  ----> A1 (GND)
          ----> A2 (GND)  ----> A2 (GND)
+
+Notes:
+- Each MCP23017 needs unique address
+- Keep I2C lines short
+- Use 4.7kΩ pullups on SDA/SCL
+- Add bypass capacitors near each IC
 ```
 
 ### Button Connection to MCP23017
@@ -156,7 +158,7 @@ GPB7    <----- [BTN] ----- GND
 
 Notes:
 - All pins configured as inputs
-- Internal pull-ups can be enabled
+- Internal pullups can be enabled
 - No diodes needed
 - Active LOW logic
 ```
@@ -176,6 +178,7 @@ Notes:
 - EC11 or similar rotary encoders
 - Pull-up resistors (10kΩ) if not using internal pull-ups
 - Capacitors (100nF) for additional debouncing (optional)
+- Shielded cable for long runs
 
 ### MCP23017 Components
 - MCP23017 IC
@@ -198,6 +201,7 @@ Notes:
 - Check for proper row/column isolation
 - Test each intersection individually
 - Consider pull-downs for outputs (optional)
+- Keep rows and columns perpendicular when possible
 
 ### Encoders
 - Mount securely to prevent mechanical stress
@@ -205,6 +209,7 @@ Notes:
 - Test rotation before final assembly
 - Add debounce capacitors if needed
 - Use shielded cables for long runs
+- Keep A/B wires same length
 
 ### MCP23017
 - Keep I2C lines short and equal length
@@ -212,7 +217,7 @@ Notes:
 - Add pull-up resistors to I2C bus
 - Add bypass capacitors near each IC
 - Consider interrupt line routing
-- Use address selection jumpers for easy configuration
+- Use address selection jumpers
 - Add power filtering if needed
 
 ## Power Considerations
@@ -222,6 +227,7 @@ Notes:
 - Consider voltage drops in long runs
 - Use appropriate power distribution
 - Consider separate power for noisy components
+- Add bulk capacitors for power stability
 
 ## Common Issues and Solutions
 
@@ -240,6 +246,7 @@ Notes:
 - Verify mechanical mounting
 - Test with different divisor settings
 - Monitor error count
+- Check wire lengths
 
 ### MCP23017 Issues
 - Verify I2C address configuration
@@ -250,11 +257,13 @@ Notes:
 - Verify power supply stability
 - Monitor communication timeouts
 - Check for address conflicts
+- Verify bypass capacitors
 
 ### Power Issues
-- Check voltage levels
+- Check voltage levels at all points
 - Monitor power consumption
 - Add power filtering
 - Use separate grounds appropriately
 - Check for ground loops
 - Consider power sequencing
+- Monitor voltage under load
