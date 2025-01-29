@@ -13,6 +13,7 @@ Notes:
 - ROW pins: OUTPUT, normally HIGH
 - COL pins: INPUT_PULLUP
 - Each button needs a diode in series to prevent ghosting
+- Active LOW logic (button pressed = LOW)
 ```
 
 ### Connection Diagram
@@ -40,6 +41,11 @@ Multiple buttons:
 GPIO1 --- [BTN] --- GND
 GPIO2 --- [BTN] --- GND
 GPIO3 --- [BTN] --- GND
+
+Notes:
+- All GPIO pins configured as INPUT_PULLUP
+- Active LOW logic (button pressed = LOW)
+- No diodes needed
 ```
 
 ## Rotary Encoders
@@ -51,7 +57,11 @@ B --- Pin B (DT)
 C --- Common/GND
 SW -- Button (optional)
 
-All pins should be set to INPUT_PULLUP
+Notes:
+- All pins configured as INPUT_PULLUP
+- No external resistors needed if using internal pull-ups
+- Optional capacitors for additional debouncing
+- Supports up to 4x resolution
 ```
 
 ### Connection Diagram
@@ -62,6 +72,11 @@ Pin A   <----- CLK (A)
 Pin B   <----- DT  (B)
 Button  <----- SW  (opt)
 GND    <----- Common (C)
+
+Optional debouncing:
+Pin A   <----- [100nF] ----- GND
+Pin B   <----- [100nF] ----- GND
+Button  <----- [100nF] ----- GND
 ```
 
 ### Multiple Encoders
@@ -77,9 +92,9 @@ Arduino         Encoder1        Encoder2
 GND     <----- GND    <----- GND
 ```
 
-## I2C Expanders
+## MCP23017 I2C Expander
 
-### MCP23017 Configuration
+### Basic Configuration
 ```
 Arduino         MCP23017
 -------         --------
@@ -87,32 +102,63 @@ SDA     <----> SDA
 SCL     <----> SCL
 GND     <----> GND/VSS
 VCC     <----> VDD
-         ----> A0 (GND for first chip, VCC for second)
-         ----> A1 (GND)
-         ----> A2 (GND)
+INT     <----> INTA/INTB (optional)
+         ----> A0 (Address select)
+         ----> A1 (Address select)
+         ----> A2 (Address select)
          ----> RESET (VCC)
+
+Notes:
+- Support for up to 8 devices
+- Each device adds 16 inputs
+- Optional interrupt support
+- Configurable internal pull-ups
+- Active LOW logic
 ```
 
-### PCF8574/PCF8574A Configuration
+### Address Configuration
 ```
-Arduino         PCF8574/A
--------         ---------
-SDA     <----> SDA
-SCL     <----> SCL
-GND     <----> GND
-VCC     <----> VCC
-         ----> A0 (GND for first chip, VCC for second)
-         ----> A1 (GND)
-         ----> A2 (GND)
+A2  A1  A0  | Address
+--------------------------
+GND GND GND | 0x20 (default)
+GND GND VCC | 0x21
+GND VCC GND | 0x22
+GND VCC VCC | 0x23
+VCC GND GND | 0x24
+VCC GND VCC | 0x25
+VCC VCC GND | 0x26
+VCC VCC VCC | 0x27
 ```
 
-### I2C Addresses
+### Multiple MCP23017 Configuration
 ```
-Device          Base Address   Address Range
--------         ------------   -------------
-MCP23017        0x20          0x20-0x27
-PCF8574         0x20          0x20-0x27
-PCF8574A        0x38          0x38-0x3F
+Arduino         MCP23017 #1     MCP23017 #2
+-------         -----------     -----------
+SDA     <----> SDA      <----> SDA
+SCL     <----> SCL      <----> SCL
+INT1    <----- INTA
+INT2    <----------------- INTA
+GND     <----> GND      <----> GND
+VCC     <----> VCC      <----> VCC
+         ----> A0 (GND)  ----> A0 (VCC)
+         ----> A1 (GND)  ----> A1 (GND)
+         ----> A2 (GND)  ----> A2 (GND)
+```
+
+### Button Connection to MCP23017
+```
+MCP23017        Buttons
+--------        -------
+GPA0    <----- [BTN] ----- GND
+GPA1    <----- [BTN] ----- GND
+...
+GPB7    <----- [BTN] ----- GND
+
+Notes:
+- All pins configured as inputs
+- Internal pull-ups can be enabled
+- No diodes needed
+- Active LOW logic
 ```
 
 ## Hardware Requirements
@@ -131,10 +177,12 @@ PCF8574A        0x38          0x38-0x3F
 - Pull-up resistors (10kΩ) if not using internal pull-ups
 - Capacitors (100nF) for additional debouncing (optional)
 
-### I2C Expanders
-- MCP23017, PCF8574, or PCF8574A
-- Pull-up resistors (4.7kΩ) for I2C lines
+### MCP23017 Components
+- MCP23017 IC
+- Pull-up resistors (4.7kΩ) for I2C bus
 - Bypass capacitors (100nF) near each IC
+- Optional interrupt pull-up resistors (10kΩ)
+- Optional address selection jumpers
 
 ## Installation Tips
 
@@ -143,6 +191,7 @@ PCF8574A        0x38          0x38-0x3F
 - Use connectors for removable parts
 - Add bypass capacitors near ICs
 - Consider strain relief for cables
+- Use proper power distribution
 
 ### Matrix
 - Install diodes in correct orientation (cathode to column)
@@ -155,13 +204,16 @@ PCF8574A        0x38          0x38-0x3F
 - Consider mechanical alignment
 - Test rotation before final assembly
 - Add debounce capacitors if needed
+- Use shielded cables for long runs
 
-### I2C Expanders
-- Keep I2C lines short
-- Use appropriate pull-up resistors
-- Check address conflicts
-- Add bypass capacitors
-- Consider address jumpers for multiple devices
+### MCP23017
+- Keep I2C lines short and equal length
+- Use twisted pair for I2C lines
+- Add pull-up resistors to I2C bus
+- Add bypass capacitors near each IC
+- Consider interrupt line routing
+- Use address selection jumpers for easy configuration
+- Add power filtering if needed
 
 ## Power Considerations
 - Use external power for many components
@@ -169,6 +221,7 @@ PCF8574A        0x38          0x38-0x3F
 - Calculate total current requirements
 - Consider voltage drops in long runs
 - Use appropriate power distribution
+- Consider separate power for noisy components
 
 ## Common Issues and Solutions
 
@@ -177,6 +230,7 @@ PCF8574A        0x38          0x38-0x3F
 - Check for missing diodes
 - Test for shorts between rows/columns
 - Verify pull-up resistors
+- Check for damaged switches
 
 ### Encoder Issues
 - Check pin connections
@@ -184,10 +238,23 @@ PCF8574A        0x38          0x38-0x3F
 - Add debounce capacitors
 - Check encoder quality
 - Verify mechanical mounting
+- Test with different divisor settings
+- Monitor error count
 
-### I2C Issues
-- Verify addresses
+### MCP23017 Issues
+- Verify I2C address configuration
 - Check pull-up resistors
 - Measure I2C voltage levels
 - Test each device individually
+- Check interrupt configuration
+- Verify power supply stability
+- Monitor communication timeouts
 - Check for address conflicts
+
+### Power Issues
+- Check voltage levels
+- Monitor power consumption
+- Add power filtering
+- Use separate grounds appropriately
+- Check for ground loops
+- Consider power sequencing
