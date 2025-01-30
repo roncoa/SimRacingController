@@ -167,7 +167,6 @@ Requirements:
 ### Detailed Guides
 - [API Reference](https://github.com/roncoa/SimRacingController/blob/main/docs/api.md)
 - [Hardware Wiring Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/wiring.md)
-- [MCP23017 Integration Guide](https://github.com/roncoa/SimRacingController/blob/main/docs/mcp23017.md)
 
 ### Key Features
 
